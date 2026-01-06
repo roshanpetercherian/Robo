@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Logs - Inventory</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+    <nav class="navbar">
+        <div class="navbar-title">
+            <svg class="navbar-logo" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="url(#grad1)"/>
+                <path d="M2 17L12 22L22 17" stroke="url(#grad1)" stroke-width="2"/>
+                <path d="M2 12L12 17L22 12" stroke="url(#grad1)" stroke-width="2"/>
+                <defs>
+                    <linearGradient id="grad1" x1="2" y1="2" x2="22" y2="22">
+                        <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+                    </linearGradient>
+                </defs>
+            </svg>
+            Robot Control Center
+        </div>
+        <div class="navbar-links">
+            <a href="/">Dashboard</a>
+            <a href="/logs">Inventory</a>
+            <a href="/map">Map</a>
+            <a href="/history">History</a> <a href="/logout">Logout</a>
+        </div>
+    </nav>
+
+    <div class="dashboard-grid" style="grid-template-columns: 1fr;">
+        <div class="panel">
+            <h2 class="panel-title">
+                <div class="panel-icon">
+                    <svg viewBox="0 0 24 24" fill="none" width="16" height="16" stroke="white" stroke-width="2">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                        <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                    </svg>
+                </div>
+                Medication Inventory & Stock
+            </h2>
+
+            <div class="inventory-grid" id="inventoryContainer">
+                <div style="text-align: center; color: #a0aec0;">Loading Inventory...</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="alertOverlay" class="alert-overlay">
+        <div class="alert-box">
+            <div class="alert-icon">⚠️</div>
+            <h3>Low Stock Alert</h3>
+            <p id="alertMessage">The following medicines are running low:</p>
+            <ul id="lowStockList"></ul>
+            <button class="alert-btn" onclick="closeAlert()">Acknowledge & Buy</button>
+        </div>
+    </div>
+
+    <script>
+        // Fetch and Render Logic
+        document.addEventListener('DOMContentLoaded', async () => {
+            const container = document.getElementById('inventoryContainer');
+            const lowStockList = document.getElementById('lowStockList');
+            const alertOverlay = document.getElementById('alertOverlay');
+            let lowStockItems = [];
+
+            try {
+                const res = await fetch('/api/inventory');
+                const data = await res.json();
+                
+                container.innerHTML = ''; // Clear loading text
+
+                data.forEach(item => {
+                    // Check for low stock
+                    if(item.status === 'low') {
+                        lowStockItems.push(`${item.name} (${item.stock} left)`);
+                    }
+
+                    // Calculate percentage
+                    const percent = (item.stock / item.total) * 100;
+                    let colorClass = 'bg-green';
+                    if(percent < 50) colorClass = 'bg-orange';
+                    if(percent < 25) colorClass = 'bg-red';
+
+                    const card = document.createElement('div');
+                    card.className = 'inventory-card';
+                    card.innerHTML = `
+                        <div class="inv-header">
+                            <div>
+                                <div class="inv-name">${item.name}</div>
+                                <div class="inv-dosage">${item.dosage}</div>
+                            </div>
+                            <div class="inv-badge status-${item.status}">${item.status.toUpperCase()}</div>
+                        </div>
+                        <div class="stock-info">
+                            <span>Stock: ${item.stock} / ${item.total} ${item.unit}</span>
+                            <span>${Math.round(percent)}%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill ${colorClass}" style="width: ${percent}%"></div>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+
+                // Trigger Alert if needed
+                if(lowStockItems.length > 0) {
+                    lowStockItems.forEach(msg => {
+                        const li = document.createElement('li');
+                        li.textContent = msg;
+                        lowStockList.appendChild(li);
+                    });
+                    // Small delay for effect
+                    setTimeout(() => {
+                        alertOverlay.style.display = 'flex';
+                    }, 500);
+                }
+
+            } catch (error) {
+                console.error(error);
+                container.innerHTML = 'Error loading inventory.';
+            }
+        });
+
+        function closeAlert() {
+            document.getElementById('alertOverlay').style.display = 'none';
+        }
+    </script>
+</body>
+</html>

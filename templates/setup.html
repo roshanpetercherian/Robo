@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Setup - MediBot</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        /* Specific Overrides for Setup Form */
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        
+        .setup-container {
+            width: 100%;
+            max-width: 900px;
+            /* Reusing .panel styles for consistency */
+            background: linear-gradient(135deg, rgba(20, 20, 35, 0.95) 0%, rgba(30, 30, 45, 0.9) 100%);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(102, 126, 234, 0.15);
+            border-radius: 20px;
+            padding: 2.5rem;
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.5);
+        }
+
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle { color: #a0aec0; margin-bottom: 2rem; }
+
+        .patient-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(102, 126, 234, 0.2);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            position: relative;
+        }
+
+        .header-row {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;
+        }
+
+        .input-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr 1fr auto;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        /* Headers for the grid */
+        .grid-labels {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr 1fr auto;
+            gap: 10px;
+            color: #667eea;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        input, select {
+            background: rgba(10, 10, 20, 0.6);
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            color: #fff;
+            padding: 12px;
+            border-radius: 8px;
+            width: 100%;
+            font-family: 'Outfit', sans-serif;
+            transition: 0.3s;
+        }
+        input:focus, select:focus {
+            outline: none; border-color: #667eea; background: rgba(10, 10, 20, 0.9);
+        }
+
+        /* Buttons */
+        .btn-main {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white; border: none; padding: 15px 30px;
+            font-size: 1.1rem; border-radius: 12px; cursor: pointer;
+            width: 100%; font-weight: 600; margin-top: 20px;
+            transition: transform 0.2s;
+        }
+        .btn-main:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4); }
+
+        .btn-outline {
+            background: transparent; border: 1px dashed #4a5568; color: #a0aec0;
+            padding: 10px; border-radius: 8px; cursor: pointer; width: 100%;
+            transition: 0.2s;
+        }
+        .btn-outline:hover { border-color: #667eea; color: #667eea; background: rgba(102, 126, 234, 0.1); }
+
+        .btn-icon-remove {
+            background: rgba(245, 101, 101, 0.1); color: #f56565;
+            border: none; width: 36px; height: 36px; border-radius: 6px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            font-size: 1.2rem;
+        }
+        .btn-icon-remove:hover { background: #f56565; color: white; }
+
+        .patient-label {
+            position: absolute; top: -12px; left: 20px;
+            background: #1a1a2e; padding: 0 10px; color: #667eea;
+            font-weight: 600; font-size: 0.9rem; border: 1px solid rgba(102, 126, 234, 0.2);
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="setup-container">
+        <h1>🏥 System Setup</h1>
+        <p class="subtitle">Configure patients and medication schedules for the AI Assistant.</p>
+
+        <div id="patientsContainer"></div>
+
+        <button class="btn-outline" onclick="addPatientBlock()">
+            + Add Another Patient (e.g. Spouse)
+        </button>
+
+        <button class="btn-main" onclick="submitSetup()">
+            Save Configuration & Launch
+        </button>
+    </div>
+
+    <script>
+        function addPatientBlock() {
+            const id = Date.now();
+            const html = `
+                <div class="patient-card" id="p-${id}">
+                    <div class="patient-label">New Patient Profile</div>
+                    <div class="header-row">
+                        <input type="text" class="p-name" placeholder="Patient Name (e.g. Father)" style="font-size: 1.1rem; font-weight: 600;">
+                        <button class="btn-icon-remove" onclick="document.getElementById('p-${id}').remove()" title="Remove Patient">×</button>
+                    </div>
+
+                    <div class="grid-labels">
+                        <div>Medicine</div>
+                        <div>Dosage</div>
+                        <div>Qty</div>
+                        <div>Time</div>
+                        <div>Instruction</div>
+                        <div></div>
+                    </div>
+
+                    <div id="meds-${id}"></div>
+                    
+                    <button class="btn-outline" style="margin-top:10px; border-style: solid; font-size:0.8rem;" onclick="addMedRow('${id}')">
+                        + Add Medicine Row
+                    </button>
+                </div>
+            `;
+            document.getElementById('patientsContainer').insertAdjacentHTML('beforeend', html);
+            addMedRow(id);
+        }
+
+        function addMedRow(pid) {
+            // Unique ID for this row to handle clicks
+            const rid = Date.now() + Math.random().toString(16).slice(2);
+            
+            const html = `
+                <div class="input-grid" id="row-${rid}">
+                    <input type="text" class="m-name" placeholder="Name">
+                    <input type="text" class="m-dosage" placeholder="Dose">
+                    <input type="number" class="m-stock" placeholder="Qty" value="30">
+                    <input type="time" class="m-time" value="09:00">
+                    
+                    <select class="m-instruct">
+                        <option value="After Food">After Food</option>
+                        <option value="Before Food">Before Food</option>
+                    </select>
+
+                    <button class="btn-icon-remove" onclick="document.getElementById('row-${rid}').remove()">×</button>
+
+                    <div style="grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 8px;">
+                        <select class="m-freq" onchange="toggleDays('${rid}', this.value)" style="width: 150px;">
+                            <option value="Daily">Every Day</option>
+                            <option value="Custom">Select Days</option>
+                        </select>
+                        
+                        <div id="days-${rid}" class="day-selector" style="display:none; gap: 5px;">
+                            <span class="day-btn" onclick="this.classList.toggle('selected')" data-day="Mon">Mon</span>
+                            <span class="day-btn" onclick="this.classList.toggle('selected')" data-day="Tue">Tue</span>
+                            <span class="day-btn" onclick="this.classList.toggle('selected')" data-day="Wed">Wed</span>
+                            <span class="day-btn" onclick="this.classList.toggle('selected')" data-day="Thu">Thu</span>
+                            <span class="day-btn" onclick="this.classList.toggle('selected')" data-day="Fri">Fri</span>
+                            <span class="day-btn" onclick="this.classList.toggle('selected')" data-day="Sat">Sat</span>
+                            <span class="day-btn" onclick="this.classList.toggle('selected')" data-day="Sun">Sun</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById(`meds-${pid}`).insertAdjacentHTML('beforeend', html);
+        }
+
+        // Helper to show/hide days
+        function toggleDays(rid, value) {
+            const el = document.getElementById(`days-${rid}`);
+            el.style.display = (value === 'Custom') ? 'flex' : 'none';
+        }
+
+        async function submitSetup() {
+            const patients = [];
+            const cards = document.querySelectorAll('.patient-card');
+
+            for (let card of cards) {
+                const name = card.querySelector('.p-name').value;
+                if (!name) return;
+                
+                const meds = [];
+                const rows = card.querySelectorAll('.input-grid');
+                
+                for (let row of rows) {
+                    const mName = row.querySelector('.m-name').value;
+                    if (mName) {
+                        // Collect Selected Days
+                        let selectedDays = "All";
+                        const freq = row.querySelector('.m-freq').value;
+                        
+                        if (freq === 'Custom') {
+                            // Find all selected day buttons in this row
+                            const dayBtns = row.querySelectorAll('.day-btn.selected');
+                            const daysArr = Array.from(dayBtns).map(btn => btn.getAttribute('data-day'));
+                            selectedDays = daysArr.join(','); // e.g., "Mon,Wed,Fri"
+                        }
+
+                        meds.push({
+                            name: mName,
+                            dosage: row.querySelector('.m-dosage').value,
+                            stock: row.querySelector('.m-stock').value,
+                            time: row.querySelector('.m-time').value,
+                            instructions: row.querySelector('.m-instruct').value,
+                            frequency: freq,         // NEW
+                            selected_days: selectedDays // NEW
+                        });
+                    }
+                }
+                patients.push({ name, meds });
+            }
+            
+            // ... (Rest of fetch code remains the same) ...
+            // [Copy the existing fetch call from your previous code here]
+             const res = await fetch('/setup', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ patients })
+            });
+            const data = await res.json();
+            if(data.success) window.location.href = data.redirect;
+        }
+
+        // Init
+        addPatientBlock();
+    </script>
+</body>
+</html>

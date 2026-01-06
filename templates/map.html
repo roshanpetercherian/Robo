@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hospital Floor Map - Pathfinding</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        /* Specific Styles for Map Page */
+        .map-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: calc(100vh - 100px);
+        }
+        
+        .controls-bar {
+            background: rgba(20, 20, 30, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            border-radius: 16px;
+            border: 1px solid rgba(102, 126, 234, 0.2);
+            margin-bottom: 1.5rem;
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        canvas {
+            background: rgba(10, 10, 20, 0.6);
+            border: 2px solid rgba(102, 126, 234, 0.3);
+            border-radius: 12px;
+            cursor: crosshair;
+            box-shadow: 0 0 50px rgba(102, 126, 234, 0.1);
+        }
+
+        .legend {
+            display: flex; gap: 15px; font-size: 0.9rem; color: #a0aec0;
+        }
+        .legend-item { display: flex; align-items: center; gap: 6px; }
+        .dot { width: 12px; height: 12px; border-radius: 3px; }
+        .dot-start { background: #48bb78; }
+        .dot-end { background: #f56565; }
+        .dot-wall { background: #4a5568; }
+        .dot-path { background: #667eea; }
+
+        .btn-control {
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            border: 1px solid rgba(102, 126, 234, 0.4);
+            background: rgba(102, 126, 234, 0.1);
+            color: #fff;
+            cursor: pointer;
+            transition: 0.2s;
+            font-family: 'Outfit', sans-serif;
+        }
+        .btn-control:hover { background: rgba(102, 126, 234, 0.3); }
+        .btn-control.active { background: #667eea; border-color: #667eea; }
+        
+        .status-msg { margin-left: auto; color: #667eea; font-family: monospace; }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar">
+        <div class="navbar-title">
+            <svg class="navbar-logo" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="url(#grad1)"/>
+                <path d="M2 17L12 22L22 17" stroke="url(#grad1)" stroke-width="2"/>
+                <path d="M2 12L12 17L22 12" stroke="url(#grad1)" stroke-width="2"/>
+                <defs>
+                    <linearGradient id="grad1" x1="2" y1="2" x2="22" y2="22">
+                        <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+                    </linearGradient>
+                </defs>
+            </svg>
+            Robot Control Center
+        </div>
+        <div class="navbar-links">
+            <a href="/">Dashboard</a>
+            <a href="/logs">Inventory</a>
+            <a href="/map">Map</a>
+            <a href="/history">History</a> <a href="/logout">Logout</a>
+        </div>
+    </nav>
+
+    <div class="dashboard-grid" style="grid-template-columns: 1fr;">
+        <div class="map-container">
+            
+            <div class="controls-bar">
+                <div class="legend">
+                    </div>
+
+                <div style="width: 1px; height: 20px; background: rgba(255,255,255,0.2);"></div>
+
+                <button class="btn-control" onclick="setMode('wall')" id="btnWall">Draw Walls</button>
+                <button class="btn-control" onclick="setMode('start')" id="btnStart">Move Robot</button>
+                <button class="btn-control" onclick="setMode('end')" id="btnEnd">Set Goal</button>
+                <button class="btn-control" onclick="clearWalls()">Clear Map</button>
+                
+                <button class="btn-control" style="background: #48bb78; border-color: #48bb78;" onclick="saveMapToDB()">
+                    💾 Save Layout
+                </button>
+
+                <div class="status-msg" id="pathStatus">Path Found: 0 steps</div>
+            </div>
+
+            <canvas id="astarCanvas" width="800" height="500"></canvas>
+            
+            <p style="margin-top: 10px; color: #718096; font-size: 0.9rem;">
+                <span style="color: #667eea;">✨ CS Feature:</span> Real-time A* (A-Star) Pathfinding. Drag to create dynamic obstacles.
+            </p>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/astar.js') }}"></script>
+</body>
+</html>

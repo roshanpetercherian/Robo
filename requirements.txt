@@ -1,0 +1,11 @@
+Flask
+Flask-CORS
+pyserial
+opencv-python
+numpy
+Pillow
+
+thefuzz
+python-Levenshtein
+dateparser
+python-dateutil

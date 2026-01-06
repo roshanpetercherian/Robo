@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Robot Control Center - Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        /* [Previous CSS remains exactly the same until the Battery Section] */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Outfit', sans-serif; background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%); color: #ffffff; overflow-x: hidden; }
+        
+        /* Navbar CSS (Unchanged) */
+        .navbar { background: rgba(20, 20, 30, 0.8); backdrop-filter: blur(10px); padding: 1.25rem 2.5rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(102, 126, 234, 0.2); box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3); position: sticky; top: 0; z-index: 100; }
+        .navbar-title { font-size: 1.75rem; font-weight: 700; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; letter-spacing: -0.5px; }
+        .navbar-logo { display: inline-block; width: 32px; height: 32px; margin-right: 12px; vertical-align: middle; }
+        .navbar-links { display: flex; gap: 2.5rem; }
+        .navbar-links a { color: #a0aec0; text-decoration: none; font-weight: 500; font-size: 0.95rem; transition: all 0.3s; position: relative; }
+        .navbar-links a::after { content: ''; position: absolute; bottom: -5px; left: 0; width: 0; height: 2px; background: linear-gradient(90deg, #667eea, #764ba2); transition: width 0.3s; }
+        .navbar-links a:hover { color: #667eea; }
+        .navbar-links a:hover::after { width: 100%; }
+
+        /* Grid Layout (Unchanged) */
+        .dashboard-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2rem; padding: 2rem; max-width: 1900px; margin: 0 auto; }
+        .panel { background: linear-gradient(135deg, rgba(20, 20, 35, 0.9) 0%, rgba(30, 30, 45, 0.8) 100%); backdrop-filter: blur(10px); border: 1px solid rgba(102, 126, 234, 0.15); border-radius: 20px; padding: 2rem; min-height: 500px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4); transition: all 0.3s; display: flex; flex-direction: column; }
+        .panel:hover { border-color: rgba(102, 126, 234, 0.3); box-shadow: 0 12px 40px rgba(102, 126, 234, 0.15); }
+        .panel-title { font-size: 1.5rem; font-weight: 600; margin-bottom: 1.75rem; color: #e2e8f0; letter-spacing: -0.5px; display: flex; align-items: center; gap: 0.75rem; }
+        .panel-icon { width: 28px; height: 28px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+
+        /* 3D Panel (Unchanged) */
+        #canvas-container { width: 100%; height: 100%; flex-grow: 1; position: relative; border-radius: 12px; overflow: hidden; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(102, 126, 234, 0.1); min-height: 400px; }
+        .interaction-hint { position: absolute; bottom: 1.5rem; left: 50%; transform: translateX(-50%); background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(10px); padding: 0.75rem 1.5rem; border-radius: 25px; color: #a0aec0; font-size: 0.875rem; text-align: center; pointer-events: none; border: 1px solid rgba(102, 126, 234, 0.2); }
+
+        /* Status & Schedule Panel - NEW CSS */
+        .status-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.25rem; padding: 1.25rem; background: rgba(10, 10, 20, 0.5); border-radius: 12px; border: 1px solid rgba(102, 126, 234, 0.1); transition: all 0.3s; }
+        .status-indicator { width: 14px; height: 14px; border-radius: 50%; animation: pulse 2s infinite; box-shadow: 0 0 20px currentColor; }
+        .status-online { background-color: #48bb78; color: #48bb78; }
+        .status-offline { background-color: #f56565; color: #f56565; animation: none; }
+        @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.7; transform: scale(0.95); } }
+
+        /* === NEW SCHEDULE STYLING === */
+        .schedule-container {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding-right: 5px;
+            margin-top: 10px;
+            max-height: 400px; /* Force scroll if too long */
+        }
+
+        .schedule-group-title {
+            color: #667eea;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 15px 0 8px 0;
+            font-weight: 700;
+        }
+
+        .schedule-item {
+            background: rgba(255, 255, 255, 0.03);
+            border-left: 3px solid #4a5568;
+            padding: 12px 15px;
+            margin-bottom: 8px;
+            border-radius: 0 8px 8px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: 0.2s;
+        }
+
+        .schedule-item:hover {
+            background: rgba(255, 255, 255, 0.07);
+        }
+
+        .schedule-item.type-medicine { border-left-color: #f56565; } /* Red for Meds */
+        .schedule-item.type-food { border-left-color: #ed8936; } /* Orange for Food */
+        .schedule-item.status-completed { opacity: 0.5; text-decoration: line-through; border-left-color: #48bb78; }
+
+        .schedule-info { display: flex; flex-direction: column; gap: 2px; }
+        .schedule-time { font-family: 'Courier New', monospace; font-size: 0.85rem; color: #a0aec0; }
+        .schedule-task { font-weight: 500; font-size: 1rem; color: #fff; }
+        
+        .schedule-badge {
+            font-size: 0.75rem;
+            padding: 4px 8px;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.1);
+            color: #cbd5e0;
+        }
+
+        /* Scrollbar Styling */
+        .schedule-container::-webkit-scrollbar { width: 8px; }
+        .schedule-container::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); border-radius: 4px; }
+        .schedule-container::-webkit-scrollbar-thumb { background: rgba(102, 126, 234, 0.4); border-radius: 4px; }
+        
+        /* [Previous Patient Panel & Manual Control CSS remains unchanged] */
+        .request-buttons { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1.25rem; margin-bottom: 2rem; }
+        .request-btn { padding: 1.75rem 1.25rem; border: none; border-radius: 16px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); color: white; position: relative; overflow: hidden; font-family: 'Outfit', sans-serif; }
+        .request-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+        .request-btn::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.1); transform: translateX(-100%); transition: transform 0.4s; }
+        .request-btn:hover::before { transform: translateX(0); }
+        .request-btn:hover:not(:disabled) { transform: translateY(-4px); box-shadow: 0 12px 28px rgba(102, 126, 234, 0.4); }
+        .request-medicine { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .request-water { background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%); }
+        .request-help { background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%); }
+        .btn-icon { display: block; font-size: 2rem; margin-bottom: 0.5rem; }
+        .voice-section { border-top: 1px solid rgba(102, 126, 234, 0.2); padding-top: 2rem; }
+        .voice-btn { width: 100%; padding: 2rem; border: 2px dashed rgba(102, 126, 234, 0.3); border-radius: 16px; background: rgba(10, 10, 20, 0.5); cursor: pointer; transition: all 0.4s; display: flex; align-items: center; justify-content: center; gap: 1rem; font-size: 1.1rem; color: #e2e8f0; font-weight: 500; font-family: 'Outfit', sans-serif; }
+        .voice-btn:hover { border-color: #667eea; background: rgba(102, 126, 234, 0.1); transform: scale(1.02); }
+        .voice-btn.listening { border-color: #f56565; background: rgba(245, 101, 101, 0.1); animation: listening-pulse 1.5s infinite; }
+        @keyframes listening-pulse { 0%, 100% { border-color: #f56565; box-shadow: 0 0 0 0 rgba(245, 101, 101, 0.4); } 50% { border-color: #fc8181; box-shadow: 0 0 0 10px rgba(245, 101, 101, 0); } }
+        .mic-icon { width: 40px; height: 40px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; }
+        .voice-btn.listening .mic-icon { background: linear-gradient(135deg, #f56565, #e53e3e); }
+        .voice-output { margin-top: 1.25rem; padding: 1.25rem; background: rgba(0, 0, 0, 0.4); border-radius: 12px; min-height: 70px; color: #cbd5e0; font-style: italic; border: 1px solid rgba(102, 126, 234, 0.1); font-size: 0.95rem; }
+        .command-input { width: 100%; min-height: 140px; padding: 1.25rem; background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(102, 126, 234, 0.2); border-radius: 12px; color: #e2e8f0; font-family: 'Outfit', sans-serif; font-size: 1rem; resize: vertical; margin-bottom: 1.25rem; transition: all 0.3s; }
+        .command-input:focus { outline: none; border-color: #667eea; background: rgba(0, 0, 0, 0.6); box-shadow: 0 0 20px rgba(102, 126, 234, 0.2); }
+        .send-btn { width: 100%; padding: 1.25rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; border-radius: 12px; color: white; font-weight: 600; font-size: 1.05rem; cursor: pointer; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); font-family: 'Outfit', sans-serif; position: relative; overflow: hidden; }
+        .send-btn::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.1); transform: translateX(-100%); transition: transform 0.4s; }
+        .send-btn:hover::before { transform: translateX(0); }
+        .send-btn:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4); }
+        .response-area { margin-top: 1.25rem; padding: 1.25rem; background: rgba(0, 0, 0, 0.4); border-radius: 12px; border-left: 4px solid #48bb78; min-height: 110px; color: #cbd5e0; font-size: 0.95rem; line-height: 1.6; }
+        @media (max-width: 1200px) { .dashboard-grid { grid-template-columns: 1fr; } .navbar { flex-direction: column; gap: 1rem; padding: 1.5rem; } .navbar-links { gap: 1.5rem; } #canvas-container { height: 350px; } }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-title">
+            <svg class="navbar-logo" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="url(#grad1)"/>
+                <path d="M2 17L12 22L22 17" stroke="url(#grad1)" stroke-width="2"/>
+                <path d="M2 12L12 17L22 12" stroke="url(#grad1)" stroke-width="2"/>
+                <defs>
+                    <linearGradient id="grad1" x1="2" y1="2" x2="22" y2="22">
+                        <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+                    </linearGradient>
+                </defs>
+            </svg>
+            Robot Control Center
+        </div>
+        <div class="navbar-links">
+            <a href="#">Dashboard</a>
+            <a href="#">Logs</a>
+            <a href="#">Settings</a>
+        </div>
+    </nav>
+
+    <div class="dashboard-grid">
+        <div class="panel">
+            <h2 class="panel-title">
+                <div class="panel-icon">
+                    <svg viewBox="0 0 24 24" fill="white" width="16" height="16">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                    </svg>
+                </div>
+                Live 3D View
+            </h2>
+            <div id="canvas-container">
+                <div class="interaction-hint">
+                    Click and drag to rotate • Scroll to zoom
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2 class="panel-title">
+                <div class="panel-icon">
+                    <svg viewBox="0 0 24 24" fill="none" width="16" height="16" stroke="white" stroke-width="2">
+                         <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                         <line x1="16" y1="2" x2="16" y2="6"></line>
+                         <line x1="8" y1="2" x2="8" y2="6"></line>
+                         <line x1="3" y1="10" x2="21" y2="10"></line>
+                    </svg>
+                </div>
+                Schedule & Vitals
+            </h2>
+            
+            <div class="status-row">
+                <div class="status-indicator status-online" id="statusIndicator"></div>
+                <div>
+                    <strong style="font-size: 1.05rem;">System Status:</strong> <span id="systemStatus" style="color: #48bb78; font-weight: 600;">Online</span>
+                </div>
+            </div>
+
+            <div>
+                <strong style="display: block; margin-bottom: 0.25rem; font-size: 1.05rem;">Medication & Diet Schedule:</strong>
+                <div class="schedule-container" id="scheduleContainer">
+                    <div style="color: #a0aec0; text-align: center; padding: 20px;">Loading schedule data...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2 class="panel-title">
+                <div class="panel-icon">
+                    <svg viewBox="0 0 24 24" fill="white" width="16" height="16">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                        <circle cx="12" cy="7" r="4"/>
+                    </svg>
+                </div>
+                Patient Requests
+            </h2>
+            
+            <div class="request-buttons">
+                <button class="request-btn request-medicine" id="req-medicine">
+                    <span class="btn-icon">💊</span>
+                    Request Medicine
+                </button>
+                <button class="request-btn request-water" id="req-water">
+                    <span class="btn-icon">💧</span>
+                     Request Water
+                </button>
+                <button class="request-btn request-help" id="req-help">
+                    <span class="btn-icon">❤️</span>
+                    Request Help
+                </button>
+            </div>
+
+            <div class="voice-section">
+                <button class="voice-btn" id="voiceBtn">
+                    <div class="mic-icon">
+                        <svg viewBox="0 0 24 24" fill="none" width="20" height="20" stroke="white" stroke-width="2">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                            <line x1="12" y1="19" x2="12" y2="23"/>
+                            <line x1="8" y1="23" x2="16" y2="23"/>
+                        </svg>
+                    </div>
+                    <span id="voiceBtnText">Tap to Speak</span>
+                </button>
+                <div class="voice-output" id="voiceOutput">Your command will appear here...</div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2 class="panel-title">
+                <div class="panel-icon">
+                    <svg viewBox="0 0 24 24" fill="none" width="16" height="16" stroke="white" stroke-width="2">
+                        <polyline points="4 17 10 11 4 5"></polyline>
+                        <line x1="12" y1="19" x2="20" y2="19"></line>
+                    </svg>
+                </div>
+                Manual Commands
+            </h2>
+            
+            <textarea 
+                class="command-input" 
+                id="manualCommandInput" 
+                placeholder="Enter detailed commands or prompts here...&#10;&#10;Example: Navigate to the kitchen and report temperature"
+            ></textarea>
+            
+            <button class="send-btn" id="sendCommandBtn">
+                 <svg viewBox="0 0 24 24" fill="none" width="20" height="20" stroke="white" stroke-width="2" style="display: inline-block; vertical-align: middle; margin-right: 8px;">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+                Send Command
+            </button>
+
+            <div class="response-area" id="responseArea">
+                Response will appear here...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== Three.js Setup (Kept same as provided for visual consistency) ====================
+        THREE.OrbitControls = function(object, domElement) {
+            this.object = object;
+            this.domElement = domElement || document;
+            this.enabled = true;
+            this.target = new THREE.Vector3();
+            this.minDistance = 0; this.maxDistance = Infinity;
+            this.minZoom = 0; this.maxZoom = Infinity;
+            this.minPolarAngle = 0; this.maxPolarAngle = Math.PI;
+            this.minAzimuthAngle = -Infinity; this.maxAzimuthAngle = Infinity;
+            this.enableDamping = false; this.dampingFactor = 0.25;
+            this.enableZoom = true; this.zoomSpeed = 1.0;
+            this.enableRotate = true; this.rotateSpeed = 1.0;
+            this.enablePan = false;
+            this.autoRotate = false; this.autoRotateSpeed = 2.0;
+            var scope = this;
+            var rotateStart = new THREE.Vector2(); var rotateEnd = new THREE.Vector2(); var rotateDelta = new THREE.Vector2();
+            var dollyStart = new THREE.Vector2(); var dollyEnd = new THREE.Vector2(); var dollyDelta = new THREE.Vector2();
+            var STATE = { NONE: -1, ROTATE: 0, DOLLY: 1, PAN: 2 }; var state = STATE.NONE;
+            var spherical = new THREE.Spherical(); var sphericalDelta = new THREE.Spherical();
+            var scale = 1; var panOffset = new THREE.Vector3(); var zoomChanged = false;
+
+            this.update = function () {
+                var offset = new THREE.Vector3();
+                var quat = new THREE.Quaternion().setFromUnitVectors(object.up, new THREE.Vector3(0, 1, 0));
+                var quatInverse = quat.clone().inverse();
+                var lastPosition = new THREE.Vector3();
+                var lastQuaternion = new THREE.Quaternion();
+                return function update() {
+                    var position = scope.object.position;
+                    offset.copy(position).sub(scope.target);
+                    offset.applyQuaternion(quat);
+                    spherical.setFromVector3(offset);
+                    if (scope.autoRotate && state === STATE.NONE) {
+                        sphericalDelta.theta -= 2 * Math.PI / 60 / 60 * scope.autoRotateSpeed;
+                    }
+                    spherical.theta += sphericalDelta.theta;
+                    spherical.phi += sphericalDelta.phi;
+                    spherical.theta = Math.max(scope.minAzimuthAngle, Math.min(scope.maxAzimuthAngle, spherical.theta));
+                    spherical.phi = Math.max(scope.minPolarAngle, Math.min(scope.maxPolarAngle, spherical.phi));
+                    spherical.makeSafe();
+                    spherical.radius *= scale;
+                    spherical.radius = Math.max(scope.minDistance, Math.min(scope.maxDistance, spherical.radius));
+                    scope.target.add(panOffset);
+                    offset.setFromSpherical(spherical);
+                    offset.applyQuaternion(quatInverse);
+                    position.copy(scope.target).add(offset);
+                    scope.object.lookAt(scope.target);
+                    if (scope.enableDamping === true) {
+                        sphericalDelta.theta *= (1 - scope.dampingFactor);
+                        sphericalDelta.phi *= (1 - scope.dampingFactor);
+                    } else { sphericalDelta.set(0, 0, 0); }
+                    scale = 1; panOffset.set(0, 0, 0);
+                    if (zoomChanged || lastPosition.distanceToSquared(scope.object.position) > 1e-6 || 8 * (1 - lastQuaternion.dot(scope.object.quaternion)) > 1e-6) {
+                        lastPosition.copy(scope.object.position); lastQuaternion.copy(scope.object.quaternion); zoomChanged = false; return true;
+                    }
+                    return false;
+                };
+            }();
+
+            function onMouseDown(event) {
+                if (scope.enabled === false) return;
+                event.preventDefault();
+                if (event.button === 0) { if (scope.enableRotate === false) return; rotateStart.set(event.clientX, event.clientY); state = STATE.ROTATE; } else if (event.button === 1) { if (scope.enableZoom === false) return; dollyStart.set(event.clientX, event.clientY); state = STATE.DOLLY; }
+                if (state !== STATE.NONE) { document.addEventListener('mousemove', onMouseMove, false); document.addEventListener('mouseup', onMouseUp, false); }
+            }
+            function onMouseMove(event) {
+                if (scope.enabled === false) return;
+                event.preventDefault();
+                var element = scope.domElement === document ? scope.domElement.body : scope.domElement;
+                if (state === STATE.ROTATE) { if (scope.enableRotate === false) return; rotateEnd.set(event.clientX, event.clientY); rotateDelta.subVectors(rotateEnd, rotateStart); sphericalDelta.theta -= 2 * Math.PI * rotateDelta.x / element.clientWidth * scope.rotateSpeed; sphericalDelta.phi -= 2 * Math.PI * rotateDelta.y / element.clientHeight * scope.rotateSpeed; rotateStart.copy(rotateEnd); scope.update(); } else if (state === STATE.DOLLY) { if (scope.enableZoom === false) return; dollyEnd.set(event.clientX, event.clientY); dollyDelta.subVectors(dollyEnd, dollyStart); if (dollyDelta.y > 0) { scale /= Math.pow(0.95, scope.zoomSpeed); } else if (dollyDelta.y < 0) { scale *= Math.pow(0.95, scope.zoomSpeed); } dollyStart.copy(dollyEnd); scope.update(); }
+            }
+            function onMouseUp() { if (scope.enabled === false) return; document.removeEventListener('mousemove', onMouseMove, false); document.removeEventListener('mouseup', onMouseUp, false); state = STATE.NONE; }
+            function onMouseWheel(event) { if (scope.enabled === false || scope.enableZoom === false || state !== STATE.NONE) return; event.preventDefault(); event.stopPropagation(); if (event.deltaY < 0) { scale /= Math.pow(0.95, scope.zoomSpeed); } else if (event.deltaY > 0) { scale *= Math.pow(0.95, scope.zoomSpeed); } scope.update(); }
+            this.domElement.addEventListener('mousedown', onMouseDown, false); this.domElement.addEventListener('wheel', onMouseWheel, false);
+        };
+
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setClearColor(0x000000, 0);
+        container.appendChild(renderer.domElement);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9);
+        directionalLight.position.set(5, 10, 7.5);
+        scene.add(directionalLight);
+        const pointLight = new THREE.PointLight(0x667eea, 0.5);
+        pointLight.position.set(-5, 5, -5);
+        scene.add(pointLight);
+
+        // --- Robot Mesh Generation (Compressed for brevity, visually identical) ---
+        const robot = new THREE.Group();
+        const blackMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.7, metalness: 0.2 });
+        const chromeMat = new THREE.MeshStandardMaterial({ color: 0xc0c0c0, roughness: 0.1, metalness: 1.0 });
+        const screenMat = new THREE.MeshStandardMaterial({ color: 0x4299e1, emissive: 0x4299e1, emissiveIntensity: 0.6, roughness: 0.8 });
+        const jointMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.5, metalness: 0.5 });
+        const tireMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.9 });
+        
+        // Chassis
+        const mainChassis = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.15, 2), blackMat); mainChassis.position.y = 0.4;
+        const topChassis = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.1, 1.8), jointMat); topChassis.position.y = 0.5;
+        const chassis = new THREE.Group(); chassis.add(mainChassis, topChassis); robot.add(chassis);
+        
+        // Wheels
+        function createWheel(x, z) {
+            const w = new THREE.Group();
+            const t = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.3, 32), tireMat);
+            const r = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.33, 32), chromeMat);
+            w.add(t, r); w.rotation.z = Math.PI/2; w.position.set(x, 0.4, z); return w;
+        }
+        robot.add(createWheel(1.0, -1.05), createWheel(1.0, 1.05), createWheel(-1.0, -1.05), createWheel(-1.0, 1.05));
+
+        // Column & Head
+        const column = new THREE.Mesh(new THREE.BoxGeometry(0.25, 2.5, 0.25), chromeMat); column.position.y = 1.65; robot.add(column);
+        const head = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.8, 0.5), blackMat); head.position.y = 3.3; robot.add(head);
+        const screen = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.55, 0.05), screenMat); screen.position.set(0, 3.4, 0.26); robot.add(screen);
+
+        scene.add(robot);
+
+        camera.position.set(4, 4, 6);
+        camera.lookAt(0, 1.5, 0);
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true; controls.autoRotate = true; controls.autoRotateSpeed = 0.7; controls.target.set(0, 1.5, 0);
+
+        function animate() { requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); }
+        animate();
+        window.addEventListener('resize', () => {
+            const w = container.clientWidth; const h = container.clientHeight;
+            camera.aspect = w / h; camera.updateProjectionMatrix(); renderer.setSize(w, h);
+        });
+
+        // ==================== Logic ====================
+        document.addEventListener('DOMContentLoaded', () => {
+            const systemStatus = document.getElementById('systemStatus');
+            const statusIndicator = document.getElementById('statusIndicator');
+            const scheduleContainer = document.getElementById('scheduleContainer');
+            
+            // --- Fetch Schedule from Python Backend ---
+            async function fetchSchedule() {
+                try {
+                    const response = await fetch('http://localhost:5000/api/schedule');
+                    const data = await response.json();
+                    renderSchedule(data);
+                } catch (error) {
+                    console.error("Error fetching schedule:", error);
+                    scheduleContainer.innerHTML = `<div style="color: #f56565; text-align: center; padding: 20px;">Error connecting to Python server.<br>Is app.py running?</div>`;
+                }
+            }
+
+            function renderSchedule(scheduleData) {
+                scheduleContainer.innerHTML = '';
+                
+                // Group by Day
+                const groups = { 'Today': [], 'Tomorrow': [] };
+                scheduleData.forEach(item => {
+                    if(groups[item.day]) groups[item.day].push(item);
+                });
+
+                Object.keys(groups).forEach(day => {
+                    if (groups[day].length === 0) return;
+
+                    const title = document.createElement('div');
+                    title.className = 'schedule-group-title';
+                    title.textContent = day;
+                    scheduleContainer.appendChild(title);
+
+                    groups[day].forEach(item => {
+                        const el = document.createElement('div');
+                        el.className = `schedule-item type-${item.type} status-${item.status}`;
+                        
+                        el.innerHTML = `
+                            <div class="schedule-info">
+                                <span class="schedule-task">${item.task}</span>
+                                <span class="schedule-time">${item.time}</span>
+                            </div>
+                            <span class="schedule-badge">${item.type.toUpperCase()}</span>
+                        `;
+                        scheduleContainer.appendChild(el);
+                    });
+                });
+            }
+
+            // Fetch immediately and then every 5 seconds
+            fetchSchedule();
+            setInterval(fetchSchedule, 5000);
+
+            // [Original Event Listeners for Buttons]
+            // ... (Keeping button logic for UI interaction)
+            const responseArea = document.getElementById('responseArea');
+            const manualCommandInput = document.getElementById('manualCommandInput');
+            
+            document.getElementById('sendCommandBtn').addEventListener('click', () => {
+                const cmd = manualCommandInput.value;
+                if(!cmd.trim()) return;
+                responseArea.textContent = `Sending command: ${cmd}...`;
+                setTimeout(() => { responseArea.textContent = `Executed: ${cmd}`; manualCommandInput.value=''; }, 1500);
+            });
+            
+            // Voice button dummy logic
+            const voiceBtn = document.getElementById('voiceBtn');
+            const voiceOutput = document.getElementById('voiceOutput');
+            let isListening = false;
+            voiceBtn.addEventListener('click', () => {
+                isListening = !isListening;
+                if(isListening) {
+                    voiceBtn.classList.add('listening');
+                    document.getElementById('voiceBtnText').textContent = 'Listening...';
+                } else {
+                    voiceBtn.classList.remove('listening');
+                    document.getElementById('voiceBtnText').textContent = 'Tap to Speak';
+                    voiceOutput.textContent = '"Bring me water" (Simulated)';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

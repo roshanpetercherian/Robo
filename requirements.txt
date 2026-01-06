@@ -1,11 +1,7 @@
 Flask
-Flask-CORS
-pyserial
-opencv-python
-numpy
-Pillow
-
-thefuzz
-python-Levenshtein
-dateparser
-python-dateutil
+Flask-SQLAlchemy
+Flask-Login
+Flask-Cors
+werkzeug
+google-generativeai
+python-dotenv

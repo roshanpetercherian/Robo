@@ -15,6 +15,9 @@ from email.mime.text import MIMEText
 
 from dotenv import load_dotenv 
 
+# ==================== LOAD ENV VARIABLES ====================
+load_dotenv()  # <--- THIS WAS MISSING. IT READS THE .ENV FILE
+
 # ==================== CONFIGURATION ====================
 
 basedir = os.path.abspath(os.path.dirname(__file__))
@@ -30,23 +33,27 @@ login_manager.login_view = 'login'
 
 CORS(app)
 
-# 🔴 PASTE API KEY HERE
+# 🔴 GET API KEY
 GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
 
-# AI Setup
+# AI Setup (Updated with Safety Check)
 AI_AVAILABLE = False
 model = None
-if "PASTE_YOUR_KEY_HERE" not in GOOGLE_API_KEY:
+
+# We add a check: if Key exists AND it is not the placeholder
+if GOOGLE_API_KEY and "PASTE_YOUR_KEY_HERE" not in GOOGLE_API_KEY:
     try:
         genai.configure(api_key=GOOGLE_API_KEY)
-        # Auto-detect best model
         for m in genai.list_models():
             if 'generateContent' in m.supported_generation_methods:
                 model = genai.GenerativeModel(m.name)
                 AI_AVAILABLE = True
                 print(f"✅ AI Connected: {m.name}")
                 break
-    except: pass
+    except Exception as e:
+        print(f"❌ AI Connection Failed: {e}")
+else:
+    print("⚠️  Google API Key not found or invalid in .env file.")
 
 # ==================== DATABASE MODELS ====================
 class User(UserMixin, db.Model):
@@ -186,6 +193,13 @@ def setup():
     return render_template('setup.html')
 
 @app.route('/')
+def landing():
+    # If user is already logged in, they can go straight to dashboard
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    return render_template('landing.html') # The new Apple-style page
+
+@app.route('/dashboard')
 @login_required
 def index(): return render_template('index.html', user=current_user)
 

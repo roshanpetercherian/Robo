@@ -1,19 +1,30 @@
-// ==================== 1. THREE.JS VISUALIZATION ====================
-// Global variables for animation
+// ==================== 1. THREE.JS VISUALIZATION (PERFORMANCE TUNED) ====================
 let robotDrawer = null; 
 let isDrawerOpen = false;
 
 (function initThreeJS() {
-    // --- 1. SETUP SCENE ---
     const container = document.getElementById('canvas-container');
+    if(!container) return; 
+
     const scene = new THREE.Scene();
+    // Default Aspect Ratio
     const camera = new THREE.PerspectiveCamera(45, container.clientWidth/container.clientHeight, 0.1, 100);
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     
+    // PERF: Force "mediump" precision (faster shaders)
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, precision: "mediump" });
+    
+    // PERF: DYNAMIC RESOLUTION SCALING
+    // On Desktop (>800px), force 1.0 scale to save GPU. On Mobile, allow 2.0 for sharpness.
+    const pixelRatio = window.innerWidth > 800 ? 1 : Math.min(window.devicePixelRatio, 2);
+    renderer.setPixelRatio(pixelRatio);
     renderer.setSize(container.clientWidth, container.clientHeight);
+    
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.BasicShadowMap; // Fastest shadows
+    
     container.appendChild(renderer.domElement);
 
-    // Orbit Controls (Mouse Interaction)
+    // Orbit Controls
     THREE.OrbitControls = function(object, domElement) {
         this.object = object;
         this.domElement = domElement || document;
@@ -53,356 +64,339 @@ let isDrawerOpen = false;
         this.domElement.addEventListener('mousedown', onMouseDown);
         document.addEventListener('mousemove', onMouseMove);
         document.addEventListener('mouseup', onMouseUp);
+        this.domElement.addEventListener('touchstart', (e) => onMouseDown(e.touches[0]));
+        this.domElement.addEventListener('touchmove', (e) => onMouseMove(e.touches[0]));
+        this.domElement.addEventListener('touchend', onMouseUp);
     };
 
     // Lights
     scene.add(new THREE.AmbientLight(0xffffff, 0.6));
     const dirLight = new THREE.DirectionalLight(0xffffff, 1);
     dirLight.position.set(5, 10, 7);
+    dirLight.castShadow = true;
     scene.add(dirLight);
 
-    // ==================== ROBOT GEOMETRY (CUBOIDAL) ====================
+    // Robot Geometry
     const robot = new THREE.Group();
-
-    // Materials
-    const matBody = new THREE.MeshStandardMaterial({ color: 0x2d3748, roughness: 0.3 }); // Dark Grey Box
-    const matChassis = new THREE.MeshStandardMaterial({ color: 0x1a202c }); // Black Base
+    const matBody = new THREE.MeshStandardMaterial({ color: 0x2d3748, roughness: 0.3 });
+    const matChassis = new THREE.MeshStandardMaterial({ color: 0x1a202c });
     const matWheel = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 });
     const matSilver = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.6, roughness: 0.2 });
     const matWater = new THREE.MeshStandardMaterial({ color: 0x4299e1, transparent: true, opacity: 0.7 });
     const matPill = new THREE.MeshStandardMaterial({ color: 0xf6ad55 });
     const matPi = new THREE.MeshStandardMaterial({ color: 0x48bb78 });
 
-    // 1. BASE CHASSIS
     const chassis = new THREE.Mesh(new THREE.BoxGeometry(2, 0.3, 2.5), matChassis);
-    chassis.position.y = 0.5;
-    robot.add(chassis);
-
-    // 2. WHEELS (2 Big Back, 2 Small Front)
+    chassis.position.y = 0.5; robot.add(chassis);
     const wheelGeo = new THREE.CylinderGeometry(0.7, 0.7, 0.3, 32);
     const wheelL = new THREE.Mesh(wheelGeo, matWheel);
     wheelL.rotation.z = Math.PI/2; wheelL.position.set(-1.2, 0.7, -0.8); robot.add(wheelL);
     const wheelR = new THREE.Mesh(wheelGeo, matWheel);
     wheelR.rotation.z = Math.PI/2; wheelR.position.set(1.2, 0.7, -0.8); robot.add(wheelR);
-
-    const casterGeo = new THREE.SphereGeometry(0.3);
-    const casterL = new THREE.Mesh(casterGeo, matSilver); casterL.position.set(-0.7, 0.3, 1.0); robot.add(casterL);
-    const casterR = new THREE.Mesh(casterGeo, matSilver); casterR.position.set(0.7, 0.3, 1.0); robot.add(casterR);
-
-    // 3. MAIN CARGO BODY
     const bodyGeo = new THREE.BoxGeometry(1.8, 1.5, 2.0);
     const mainBody = new THREE.Mesh(bodyGeo, matBody);
-    mainBody.position.set(0, 1.5, 0); 
-    robot.add(mainBody);
+    mainBody.position.set(0, 1.5, 0); robot.add(mainBody);
 
-    // 4. THE DRAWER (Sliding Tray)
     robotDrawer = new THREE.Group();
     robotDrawer.position.set(0, 1.2, 0); 
-
     const trayMesh = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.1, 1.8), matSilver);
     robotDrawer.add(trayMesh);
     const trayDoor = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.4, 0.1), matSilver);
-    trayDoor.position.set(0, 0.15, 0.95); 
-    robotDrawer.add(trayDoor);
-
-    // Items
+    trayDoor.position.set(0, 0.15, 0.95); robotDrawer.add(trayDoor);
     const water = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.6, 16), matWater);
     water.position.set(0.4, 0.36, 0); robotDrawer.add(water);
-    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.1, 16), matSilver);
-    cap.position.set(0.4, 0.71, 0); robotDrawer.add(cap);
     const pill = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.4, 16), matPill);
     pill.position.set(-0.4, 0.26, 0.2); robotDrawer.add(pill);
-    const pillCap = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.1, 16), matChassis);
-    pillCap.position.set(-0.4, 0.51, 0.2); robotDrawer.add(pillCap);
     robot.add(robotDrawer);
-
-    // 5. RASPBERRY PI
+    
     const piBoard = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.6, 0.1), matPi);
-    piBoard.position.set(0, 2.0, -1.01); 
-    robot.add(piBoard);
-
+    piBoard.position.set(0, 2.0, -1.01); robot.add(piBoard);
     scene.add(robot);
 
-    // Camera
-    camera.position.set(3, 4, 4);
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.target.set(0, 1, 0);
 
-    // Animation Loop
-    function animate() {
-        requestAnimationFrame(animate);
-        // Drawer Logic
-        const targetZ = isDrawerOpen ? 1.2 : 0;
-        robotDrawer.position.z += (targetZ - robotDrawer.position.z) * 0.05;
-        controls.update();
-        renderer.render(scene, camera);
-    }
-    animate();
+    let isRendering = true;
+    
+    // PERF: FPS LIMITER (Cap at 30 FPS)
+    let lastTime = 0;
+    const fpsLimit = 30; 
+    const interval = 1000 / fpsLimit;
 
-    window.addEventListener('resize', () => {
-        camera.aspect = container.clientWidth / container.clientHeight;
+    function animate(timestamp) {
+        if (!isRendering) return;
+        requestAnimationFrame(animate);
+
+        const delta = timestamp - lastTime;
+        if (delta > interval) {
+            lastTime = timestamp - (delta % interval);
+
+            const targetZ = isDrawerOpen ? 1.2 : 0;
+            robotDrawer.position.z += (targetZ - robotDrawer.position.z) * 0.05;
+            controls.update();
+            renderer.render(scene, camera);
+        }
+    }
+    requestAnimationFrame(animate);
+
+    // Stop rendering when off-screen
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                if (!isRendering) { isRendering = true; requestAnimationFrame(animate); }
+            } else { isRendering = false; }
+        });
+    }, { threshold: 0.1 });
+    observer.observe(container);
+
+    const resizeObserver = new ResizeObserver(() => {
+        if (!container || !camera || !renderer) return;
+        const width = container.clientWidth;
+        const height = container.clientHeight;
+        if (width === 0 || height === 0) return;
+        camera.aspect = width / height;
         camera.updateProjectionMatrix();
-        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setSize(width, height);
+        if (width < 350) { camera.position.set(5, 6, 7); } 
+        else if (width > 600) { camera.position.set(3, 4, 4); } 
+        else { camera.position.set(4, 5, 5); }
     });
+    resizeObserver.observe(container);
 })();
 
-// ==================== 2. APPLICATION LOGIC ====================
-document.addEventListener('DOMContentLoaded', () => {
-    
-    // --- SCHEDULE FETCHING ---
+// ==================== 2. SMART POLLING & RENDER LOGIC ====================
+let lastScheduleState = ""; // Cache
+
+function renderSchedule(data) {
     const scheduleContainer = document.getElementById('scheduleContainer');
+    if(!scheduleContainer) return;
+    scheduleContainer.innerHTML = '';
+    
+    const groups = {};
+    data.forEach(item => { if(!groups[item.day]) groups[item.day] = []; groups[item.day].push(item); });
 
-    // Make this globally accessible for the toggle/delete functions
-    window.fetchSchedule = async function() {
-        try {
-            const res = await fetch('/api/schedule');
-            const data = await res.json();
-            renderSchedule(data);
-        } catch (error) {
-            console.error("Schedule error", error);
-            scheduleContainer.innerHTML = '<div style="text-align:center; padding:10px; color:#f56565">Server Offline</div>';
-        }
-    };
+    for (const [day, tasks] of Object.entries(groups)) {
+        if(day !== 'Today') continue; 
 
-    // --- NEW INTERACTIVE RENDERER ---
-    function renderSchedule(data) {
-        scheduleContainer.innerHTML = '';
-        
-        // Group by Day
-        const groups = {};
-        data.forEach(item => {
-            if(!groups[item.day]) groups[item.day] = [];
-            groups[item.day].push(item);
-        });
+        tasks.forEach(task => {
+            const el = document.createElement('div');
+            const opacity = task.is_done ? '0.5' : '1';
+            const checkBg = task.is_done ? '#30d158' : 'transparent'; 
+            const checkBorder = task.is_done ? 'none' : '2px solid #48bb78';
+            const textDecor = task.is_done ? 'line-through' : 'none';
+            const icon = task.is_done ? '✓' : '';
 
-        for (const [day, tasks] of Object.entries(groups)) {
-            // Only Show Today for simplicity in this view
-            if(day !== 'Today') continue; 
-
-            tasks.forEach(task => {
-                const el = document.createElement('div');
-                // Styling based on status
-                const opacity = task.is_done ? '0.5' : '1';
-                const decoration = task.is_done ? 'line-through' : 'none';
-                const checkColor = task.is_done ? '#48bb78' : 'transparent';
-                const checkMark = task.is_done ? '✓' : '';
-
-                el.className = `schedule-item`;
-                el.style.opacity = opacity;
-                el.style.display = 'flex';
-                el.style.alignItems = 'center';
-                el.style.justifyContent = 'space-between';
-                
-                el.innerHTML = `
-                    <div style="flex-grow:1; display:flex; align-items:center; gap:15px;">
-                        <div onclick="toggleTask(${task.id})" style="cursor:pointer; width:22px; height:22px; border:2px solid #48bb78; border-radius:50%; display:flex; align-items:center; justify-content:center; color:white; background:${checkColor}; font-weight:bold; font-size:14px; transition:0.2s;">
-                            ${checkMark}
+            el.className = `schedule-item`;
+            el.style.opacity = opacity;
+            
+            el.innerHTML = `
+                <div style="flex-grow:1; display:flex; align-items:center; gap:15px;">
+                    <div onclick="toggleTask(${task.id})" 
+                         style="cursor:pointer; width:28px; height:28px; 
+                                border:${checkBorder}; border-radius:50%; 
+                                display:flex; align-items:center; justify-content:center; 
+                                color:white; background:${checkBg}; 
+                                font-weight:bold; font-size:16px; transition:0.2s;">
+                        ${icon}
+                    </div>
+                    <div style="flex-grow:1;">
+                        <div class="schedule-task" style="text-decoration:${textDecor}; color:white; font-size:1.05rem;">
+                            ${task.task}
                         </div>
-                        
-                        <div>
-                            <div class="schedule-task" style="text-decoration:${decoration}; color:white; font-size:1.05rem;">
-                                ${task.task} 
-                                <span style="font-size:0.8em; color:#a0aec0; margin-left:5px;">(${task.patient})</span>
-                            </div>
-                            <div class="schedule-time" style="color:#667eea;">${task.time}</div>
+                        <div class="schedule-time" style="color:#0a84ff; font-weight:600; font-size:0.85rem; display:flex; justify-content:space-between;">
+                            <span>${task.time}</span>
+                            <span style="color:#8e8e93; font-weight:400; font-size:0.8rem;">${task.patient}</span>
                         </div>
                     </div>
-                    
-                    <button onclick="deleteTask(${task.id})" style="background:transparent; border:none; color:#f56565; cursor:pointer; font-size:1.5rem; padding:0 10px; opacity:0.7;">&times;</button>
-                `;
-                scheduleContainer.appendChild(el);
-            });
-            
-            if(tasks.length === 0) {
-                 scheduleContainer.innerHTML = '<div style="text-align:center; padding:20px; color:#718096">No tasks remaining today.</div>';
-            }
-        }
+                </div>
+                <button onclick="deleteTask(${task.id})" style="background:transparent; border:none; color:#ff453a; cursor:pointer; font-size:1.2rem; opacity:0.6; padding:10px;">✕</button>
+            `;
+            scheduleContainer.appendChild(el);
+        });
     }
+}
 
-    // Initial Load
+// Smart Polling Loop
+window.fetchSchedule = async function() {
+    try {
+        const res = await fetch('/api/schedule');
+        const data = await res.json();
+        
+        const currentDataString = JSON.stringify(data);
+        if (currentDataString !== lastScheduleState) {
+            renderSchedule(data);
+            lastScheduleState = currentDataString;
+        }
+    } catch (error) { console.error("Schedule error", error); }
+};
+
+document.addEventListener('DOMContentLoaded', () => {
     window.fetchSchedule();
-    setInterval(window.fetchSchedule, 5000);
+    setInterval(window.fetchSchedule, 10000); // 10s is safe
 
-    // --- VOICE COMMANDS ---
+    // Voice Setup
     const voiceBtn = document.getElementById('voiceBtn');
-    const voiceOutput = document.getElementById('voiceOutput');
+    const voiceMsg = document.getElementById('voiceMessage'); 
+    const voiceSub = document.getElementById('voiceSubtext'); 
     let recognition;
 
     if ('webkitSpeechRecognition' in window) {
         recognition = new webkitSpeechRecognition();
-        recognition.continuous = false;
-        recognition.lang = 'en-US';
+        recognition.continuous = false; recognition.lang = 'en-US';
 
-        recognition.onstart = () => {
-            voiceBtn.classList.add('listening');
-            document.getElementById('voiceBtnText').innerText = "Listening...";
-        };
-        
-        recognition.onend = () => {
-            voiceBtn.classList.remove('listening');
-            document.getElementById('voiceBtnText').innerText = "Tap to Speak";
-        };
+        recognition.onstart = () => { if(voiceBtn) voiceBtn.classList.add('listening'); if(voiceSub) voiceSub.innerText = "Listening..."; };
+        recognition.onend = () => { if(voiceBtn) voiceBtn.classList.remove('listening'); if(voiceSub) voiceSub.innerText = "Tap to Speak"; };
 
         recognition.onresult = async (e) => {
             const text = e.results[0][0].transcript;
-            voiceOutput.innerText = `"${text}"`;
-            
-            // LOCAL ANIMATION TRIGGER
-            const lowerText = text.toLowerCase();
-            if (lowerText.includes("open tray") || lowerText.includes("open drawer")) {
-                isDrawerOpen = true;
-                voiceOutput.innerHTML = `<span style="color:#48bb78">✓ Opening Drawer...</span>`;
-            } else if (lowerText.includes("close tray") || lowerText.includes("close drawer")) {
-                isDrawerOpen = false;
-                voiceOutput.innerHTML = `<span style="color:#48bb78">✓ Closing Drawer...</span>`;
-            }
+            if(voiceMsg) { voiceMsg.innerText = `"${text}"`; voiceMsg.style.color = "#fff"; }
+            if(voiceSub) voiceSub.innerText = "Processing...";
 
-            // BACKEND AI
+            // Local Trigger
+            if (text.toLowerCase().includes("open")) isDrawerOpen = true;
+            if (text.toLowerCase().includes("close")) isDrawerOpen = false;
+
+            // API Call
             try {
                 const res = await fetch('/api/voice/process', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ text: text })
                 });
                 const result = await res.json();
-                
                 if(result.success) {
-                    voiceOutput.innerHTML = `<span style="color:#48bb78">✓ ${result.message}</span>`;
-                    if(result.action === 'DISPENSE' || result.action === 'DISPENSE_MED') {
-                        isDrawerOpen = true; 
-                    }
+                    voiceMsg.innerText = result.message;
+                    voiceMsg.style.color = "#30d158"; 
+                    if(result.action === 'DISPENSE' || result.action === 'DISPENSE_MED') isDrawerOpen = true; 
                     window.fetchSchedule();
                 } else {
-                    voiceOutput.innerHTML = `<span style="color:#f56565">✗ ${result.error}</span>`;
+                    voiceMsg.innerText = result.error || "Error";
+                    voiceMsg.style.color = "#ff453a"; 
                 }
-            } catch(err) {
-                console.log("Server error");
-            }
+            } catch(err) { console.error(err); }
+            setTimeout(() => { if(voiceSub) voiceSub.innerText = "Tap to Speak"; }, 5000);
         };
-
-        voiceBtn.addEventListener('click', () => recognition.start());
+        if(voiceBtn) voiceBtn.addEventListener('click', () => recognition.start());
     } else {
-        voiceOutput.innerText = "Voice not supported in this browser.";
+        if(voiceMsg) voiceMsg.innerText = "Voice not supported";
     }
 
-    // --- MANUAL COMMANDS ---
+    // ==================== MANUAL TEXT COMMAND (AI POWERED) ====================
     const sendBtn = document.getElementById('sendCommandBtn');
-    const input = document.getElementById('manualCommandInput');
+    const manualInput = document.getElementById('manualCommandInput');
     const responseArea = document.getElementById('responseArea');
 
-    if(sendBtn){
-        sendBtn.addEventListener('click', () => {
-            const cmd = input.value.trim();
-            if(!cmd) return;
+    async function processManualCommand() {
+        const text = manualInput.value.trim();
+        if (!text) return;
 
-            if(cmd.toLowerCase().includes("open")) isDrawerOpen = true;
-            if(cmd.toLowerCase().includes("close")) isDrawerOpen = false;
+        responseArea.innerText = "Jacob is thinking...";
+        responseArea.style.color = "#aaa";
+        
+        // Immediate UI feedback
+        if (text.toLowerCase().includes("open")) isDrawerOpen = true;
+        if (text.toLowerCase().includes("close")) isDrawerOpen = false;
+
+        try {
+            const res = await fetch('/api/voice/process', {
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ text: text })
+            });
+            const result = await res.json();
             
-            responseArea.innerText = `Sending: "${cmd}"...`;
-            setTimeout(() => {
-                responseArea.innerHTML = `<span style="color:#48bb78">✓ Robot Acknowledged: ${cmd}</span>`;
-                input.value = '';
-            }, 1000);
-        });
+            if(result.success) {
+                responseArea.innerText = result.message; 
+                responseArea.style.color = "#30d158"; // Green
+                if(result.action === 'DISPENSE' || result.action === 'DISPENSE_MED') isDrawerOpen = true; 
+                window.fetchSchedule();
+            } else {
+                responseArea.innerText = result.error || "I didn't understand.";
+                responseArea.style.color = "#ff453a"; 
+            }
+        } catch(err) { 
+            console.error(err);
+            responseArea.innerText = "Connection Error";
+            responseArea.style.color = "#ff453a";
+        }
+        manualInput.value = '';
+    }
+
+    if(sendBtn){
+        sendBtn.addEventListener('click', processManualCommand);
+        manualInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') processManualCommand(); });
     }
 });
 
-// ==================== 3. GLOBAL INTERACTIVE FUNCTIONS ====================
-// These are attached to window so they can be called by onclick events in HTML
-
-// 1. Toggle Task Status (Check/Uncheck) with Stock Management
-window.toggleTask = async (id) => {
-    try {
-        const res = await fetch('/api/task/toggle', {
-            method: 'POST', 
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({id})
-        });
-        
-        const data = await res.json();
-        
-        if (data.success) {
-            // Success: Refresh to show new status and updated stock
-            window.fetchSchedule(); 
-        } else {
-            // Failure: Likely Out of Stock
-            alert(data.message); 
-        }
-    } catch(e) { 
-        console.error("Error toggling task:", e);
-        alert("Server communication error.");
-    }
+// ==================== 3. GLOBAL FUNCTIONS ====================
+window.toggleTask = async (id) => { 
+    const res = await fetch('/api/task/toggle', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({id}) });
+    lastScheduleState = ""; // Force Refresh
+    window.fetchSchedule();
 };
-
-// 2. Delete Task
-window.deleteTask = async (id) => {
-    if(!confirm("Are you sure you want to delete this task?")) return;
-    try {
-        await fetch('/api/task/delete', {
-            method: 'POST', 
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({id})
-        });
-        window.fetchSchedule();
-    } catch(e) { console.error(e); }
+window.deleteTask = async (id) => { 
+    await fetch('/api/task/delete', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({id}) });
+    lastScheduleState = ""; 
+    window.fetchSchedule();
 };
-
-// 3. Add Modal Helpers
-window.openAddModal = () => {
-    document.getElementById('addTaskModal').style.display = 'flex';
-};
+window.openAddModal = () => document.getElementById('addTaskModal').style.display = 'flex';
 
 window.submitNewTask = async () => {
     const name = document.getElementById('newTaskName').value;
+    const dosage = document.getElementById('newTaskDosage').value;
     const time = document.getElementById('newTaskTime').value;
-    const pid = document.getElementById('newTaskPatient').value;
+    const patientSelect = document.getElementById('newTaskPatient');
+    const pid = patientSelect ? patientSelect.value : null;
     
-    if(!name || !time) return alert("Please enter medicine name and time");
-
+    if(!name || !time) return alert("Please enter at least a Medicine Name and Time.");
+    
     try {
-        await fetch('/api/task/add', {
-            method: 'POST', 
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ name, time, patient_id: pid })
-        });
-        
-        document.getElementById('addTaskModal').style.display = 'none';
-        document.getElementById('newTaskName').value = '';
-        window.fetchSchedule();
-    } catch(e) { console.error(e); }
-};
-
-// 4. Handle Patient Requests (Buttons)
-window.sendRequest = async (type) => {
-    // VISUAL FEEDBACK
-    const voiceOutput = document.getElementById('voiceOutput');
-    if(voiceOutput) voiceOutput.innerHTML = `<span style="color:#63b3ed">Sending ${type} request...</span>`;
-
-    // ROBOT ACTION: Open Tray for Meds or Water
-    if (type === 'medicine' || type === 'water') {
-        if (typeof isDrawerOpen !== 'undefined') {
-            isDrawerOpen = true; // Trigger 3D Animation
-            console.log("🤖 Robot: Opening Tray for delivery");
-        }
-    } else if (type === 'help') {
-        // For Help, maybe flash the screen or play a sound (optional)
-        alert("🚨 EMERGENCY ALERT SENT TO NURSE STATION! 🚨");
-    }
-
-    // BACKEND LOGGING
-    try {
-        const res = await fetch('/api/request', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ type })
+        const res = await fetch('/api/task/add', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ name: name, dosage: dosage, time: time, patient_id: pid, instructions: "Manual Add" })
         });
         const data = await res.json();
-        
-        if(data.success && voiceOutput) {
-            voiceOutput.innerHTML = `<span style="color:#48bb78">✓ Request Sent: ${type.toUpperCase()}</span>`;
-        }
-    } catch (e) {
-        console.error("Request failed", e);
-        alert("Failed to send request. Check connection.");
-    }
+        if(data.success) {
+            document.getElementById('addTaskModal').style.display = 'none';
+            document.getElementById('newTaskName').value = '';
+            document.getElementById('newTaskDosage').value = '';
+            lastScheduleState = ""; 
+            window.fetchSchedule();
+        } else { alert("Error: " + data.message); }
+    } catch(e) { console.error(e); alert("Server connection failed."); }
 };
+
+window.sendRequest = async (type) => {
+    if (type === 'medicine' || type === 'water') isDrawerOpen = true;
+    try { await fetch('/api/request', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ type }) }); } catch(e){}
+};
+
+// ==================== MOBILE MENU & DOTS ====================
+document.addEventListener('DOMContentLoaded', () => {
+    const grid = document.querySelector('.dashboard-grid');
+    const dots = document.querySelectorAll('.nav-dot');
+    const panels = document.querySelectorAll('.panel');
+    const updateDots = () => {
+        const center = grid.scrollLeft + (grid.offsetWidth / 2);
+        panels.forEach((panel, index) => {
+            const panelLeft = panel.offsetLeft;
+            const panelRight = panelLeft + panel.offsetWidth;
+            if (center >= panelLeft && center <= panelRight) {
+                dots.forEach(d => d.classList.remove('active'));
+                if(dots[index]) dots[index].classList.add('active');
+            }
+        });
+    };
+    if(grid) grid.addEventListener('scroll', updateDots);
+
+    const menuBtn = document.querySelector('.menu-toggle');
+    const navbar = document.querySelector('.navbar');
+    if (menuBtn && navbar) {
+        menuBtn.addEventListener('click', () => {
+            navbar.classList.toggle('open');
+            const icon = navbar.classList.contains('open') 
+                ? '<line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>' 
+                : '<line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line>';
+            menuBtn.querySelector('svg').innerHTML = icon;
+        });
+    }
+});

@@ -2,77 +2,280 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Activity History</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>History - Jacob Control Center</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+
     <style>
-        .timeline {
+        /* ================= HISTORY SPECIFIC STYLES ================= */
+        .content-container {
+            padding: 120px 20px 100px; /* Extra bottom padding for scroll */
             max-width: 800px;
             margin: 0 auto;
-            position: relative;
+            min-height: 100vh;
         }
-        .timeline::after {
-            content: '';
-            position: absolute;
-            width: 2px;
-            background: rgba(102, 126, 234, 0.3);
-            top: 0; bottom: 0; left: 20px;
+
+        .page-header {
+            margin-bottom: 30px;
+            padding-left: 10px;
         }
+        
+        .page-title {
+            font-size: 2rem; font-weight: 800; color: white; margin: 0;
+            letter-spacing: -1px;
+        }
+        .page-subtitle {
+            font-size: 0.9rem; color: var(--text-muted); margin-top: 5px;
+        }
+
+        /* Timeline / Notification List */
+        .timeline-feed {
+            display: flex; flex-direction: column; gap: 15px;
+            /* 3D Perspective for the stack effect */
+            perspective: 1000px;
+        }
+
+        /* The "Notification" Card */
         .log-card {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(102, 126, 234, 0.2);
-            border-radius: 12px;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-            margin-left: 50px;
+            display: flex; gap: 15px;
+            background: rgba(30, 30, 30, 0.6); /* Dark Glass */
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 22px;
+            transition: background 0.2s;
             position: relative;
+            overflow: hidden;
+            
+            /* Performance Optimization */
+            will-change: transform, opacity;
+            transform-origin: center bottom; /* Expand from bottom */
         }
-        .log-card::before {
-            content: '';
-            position: absolute;
-            width: 16px; height: 16px;
-            background: #667eea;
-            border-radius: 50%;
-            left: -38px;
-            top: 20px;
-            box-shadow: 0 0 10px #667eea;
-            z-index: 1;
+        
+        .log-card:hover {
+            background: rgba(40, 40, 40, 0.7);
         }
-        .log-time { color: #a0aec0; font-size: 0.85rem; font-family: monospace; }
-        .log-action { font-size: 1.1rem; font-weight: 600; color: white; margin: 5px 0; }
-        .log-details { color: #cbd5e0; font-size: 0.95rem; font-style: italic; }
+
+        /* Status Indicator Line */
+        .status-indicator {
+            width: 4px; border-radius: 4px;
+            background: var(--ios-blue);
+            flex-shrink: 0;
+        }
+
+        /* Content Area */
+        .log-content { flex-grow: 1; }
+
+        .log-header {
+            display: flex; justify-content: space-between; align-items: flex-start;
+            margin-bottom: 5px;
+        }
+
+        .log-action {
+            font-size: 1.05rem; font-weight: 600; color: white;
+        }
+
+        .log-time {
+            font-size: 0.75rem; color: var(--text-muted); font-weight: 500;
+            background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 8px;
+            white-space: nowrap;
+        }
+
+        .log-details {
+            font-size: 0.9rem; color: #b0b0b0; line-height: 1.4;
+        }
+
+        /* Contextual Colors */
+        .type-med { background: var(--ios-green); box-shadow: 0 0 10px rgba(48, 209, 88, 0.3); }
+        .type-alert { background: var(--ios-red); box-shadow: 0 0 10px rgba(255, 69, 58, 0.3); }
+        .type-info { background: var(--ios-blue); }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center; padding: 60px 20px;
+            color: var(--text-muted);
+            background: rgba(255,255,255,0.02); border-radius: 24px;
+            border: 1px dashed rgba(255,255,255,0.1);
+        }
+
+        /* Mobile Adjustments */
+        @media (max-width: 600px) {
+            .content-container { padding-top: 100px; padding-left: 15px; padding-right: 15px; }
+            .page-title { font-size: 1.75rem; }
+            .log-card { padding: 15px; border-radius: 18px; }
+            .log-action { font-size: 1rem; }
+            .log-details { font-size: 0.85rem; }
+        }
     </style>
 </head>
 <body>
-    <nav class="navbar">
-        <div class="navbar-title">MediBot History</div>
-        <div class="navbar-links">
-            <a href="/">Dashboard</a>
-            <a href="/logs">Inventory</a>
-            <a href="/map">Map</a>
-            <a href="/history" class="active">History</a>
-            <a href="/logout" style="color:#f56565;">Logout</a>
-        </div>
-    </nav>
 
-    <div class="dashboard-grid" style="grid-template-columns: 1fr;">
-        <div class="panel">
-            <h2 class="panel-title">System Audit Log</h2>
-            
-            <div class="timeline">
-                {% if logs %}
-                    {% for log in logs %}
-                    <div class="log-card">
-                        <div class="log-time">{{ log.timestamp.strftime('%Y-%m-%d %I:%M %p') }}</div>
-                        <div class="log-action">{{ log.action }}</div>
-                        <div class="log-details">{{ log.details }}</div>
+    <div class="bg-glow"></div>
+
+    <div class="navbar-container">
+        <nav class="navbar">
+            <div class="navbar-header">
+                <a href="/" class="navbar-title">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                    Jacob Control Center
+                </a>
+                <button class="menu-toggle">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                </button>
+            </div>
+            <div class="navbar-links">
+                <a href="/">Dashboard</a>
+                <a href="/logs">Inventory</a>
+                <a href="/map">Map</a>
+                <a href="/history" class="active">History</a>
+                <a href="/logout">Logout</a>
+            </div>
+        </nav>
+    </div>
+
+    <div class="content-container">
+        
+        <div class="page-header">
+            <h1 class="page-title">Activity Log</h1>
+            <div class="page-subtitle">Recent system events and actions</div>
+        </div>
+
+        <div class="stats-container" style="margin-bottom: 30px;">
+            <div class="log-card" style="display:block; padding: 25px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                    <h3 style="margin:0; font-size:1.2rem;">Adherence Analytics</h3>
+                    <span class="inv-badge status-ok">Weekly Report</span>
+                </div>
+                
+                <div style="display:flex; align-items:center; justify-content:space-around; flex-wrap:wrap; gap:20px;">
+                    <div style="width:140px; height:140px; position:relative;">
+                        <canvas id="adherenceChart"></canvas>
+                        <div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); font-weight:800; font-size:1.5rem;">92%</div>
                     </div>
-                    {% endfor %}
-                {% else %}
-                    <div style="text-align: center; color: #a0aec0; padding: 2rem;">No activity recorded yet.</div>
-                {% endif %}
+
+                    <div style="text-align:left;">
+                        <div style="margin-bottom:15px;">
+                            <div style="font-size:0.8rem; color:#8e8e93;">Total Doses</div>
+                            <div style="font-size:1.5rem; font-weight:700;">24</div>
+                        </div>
+                        <div style="display:flex; gap:20px;">
+                            <div>
+                                <div style="font-size:0.8rem; color:#30d158;">Taken</div>
+                                <div style="font-size:1.2rem; font-weight:600;">22</div>
+                            </div>
+                            <div>
+                                <div style="font-size:0.8rem; color:#ff453a;">Missed</div>
+                                <div style="font-size:1.2rem; font-weight:600;">2</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
+
+        <div class="timeline-feed">
+            {% if logs %}
+                {% for log in logs %}
+                    {% set status_class = 'type-info' %}
+                    {% if 'Dispensed' in log.action or 'Success' in log.action %}
+                        {% set status_class = 'type-med' %}
+                    {% elif 'EMERGENCY' in log.action or 'Error' in log.action %}
+                        {% set status_class = 'type-alert' %}
+                    {% endif %}
+
+                    <div class="log-card">
+                        <div class="status-indicator {{ status_class }}"></div>
+                        <div class="log-content">
+                            <div class="log-header">
+                                <div class="log-action">{{ log.action }}</div>
+                                <div class="log-time">{{ log.timestamp.strftime('%I:%M %p') }}</div>
+                            </div>
+                            <div class="log-details">{{ log.details }}</div>
+                            <div style="font-size: 0.75rem; color: #555; margin-top: 5px;">{{ log.timestamp.strftime('%b %d, %Y') }}</div>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <div style="font-size: 2rem; margin-bottom: 10px;">📭</div>
+                    <div>No activity recorded yet.</div>
+                </div>
+            {% endif %}
+        </div>
+
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        // Render the Chart
+        const ctx = document.getElementById('adherenceChart');
+        if(ctx) {
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Taken', 'Missed'],
+                    datasets: [{
+                        data: [22, 2], // You can make this dynamic later
+                        backgroundColor: ['#30d158', 'rgba(255, 69, 58, 0.2)'],
+                        borderWidth: 0,
+                        cutout: '80%',
+                        borderRadius: 20
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { enabled: false } }
+                }
+            });
+        }
+    </script>
+
+    <script>
+        // Navbar Logic
+        document.querySelector('.menu-toggle').addEventListener('click', function() {
+            document.querySelector('.navbar').classList.toggle('open');
+        });
+
+        // ==========================================
+        //  IPHONE NOTIFICATION STACK ANIMATION
+        // ==========================================
+        document.addEventListener("DOMContentLoaded", (event) => {
+            gsap.registerPlugin(ScrollTrigger);
+
+            const cards = gsap.utils.toArray('.log-card');
+
+            cards.forEach((card, i) => {
+                // Initial State: Slightly rotated X (like stacking), small scale, transparent
+                gsap.set(card, { 
+                    autoAlpha: 0, // Opacity + Visibility
+                    scale: 0.85, 
+                    y: 50,
+                    rotationX: -10 
+                });
+
+                // Animation to "Active" State
+                gsap.to(card, {
+                    duration: 0.6,
+                    autoAlpha: 1,
+                    scale: 1,
+                    y: 0,
+                    rotationX: 0,
+                    ease: "back.out(1.5)", // "Spring" pop effect
+                    scrollTrigger: {
+                        trigger: card,
+                        start: "top 95%", // Start when top of card hits bottom 5% of viewport
+                        end: "top 70%",
+                        toggleActions: "play none none reverse", // Plays when enters, reverses when leaves
+                    }
+                });
+            });
+        });
+    </script>
 </body>
 </html>

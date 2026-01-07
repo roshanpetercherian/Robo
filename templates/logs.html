@@ -3,66 +3,169 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Patient Logs - Inventory</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <title>Inventory - Jacob Control Center</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    <style>
+        /* ================= INVENTORY SPECIFIC STYLES ================= */
+        
+        /* Container for the Grid */
+        .content-container {
+            padding: 120px 15vw 40px; /* Top padding clears fixed navbar */
+            min-height: 100vh;
+        }
+
+        .page-title {
+            font-size: 2rem; font-weight: 800; margin-bottom: 30px;
+            letter-spacing: -1px; color: white;
+        }
+
+        .inventory-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        /* The Card */
+        .inventory-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--card-border);
+            border-radius: 24px;
+            padding: 24px;
+            transition: transform 0.2s ease, background 0.2s;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .inventory-card:hover {
+            transform: translateY(-5px);
+            background: rgba(40, 40, 40, 0.7);
+        }
+
+        /* Header (Name + Badge) */
+        .inv-header {
+            display: flex; justify-content: space-between; align-items: flex-start;
+            margin-bottom: 20px;
+        }
+        .inv-name { font-size: 1.1rem; font-weight: 700; color: white; margin-bottom: 4px; }
+        .inv-dosage { font-size: 0.85rem; color: var(--text-muted); }
+
+        .inv-badge {
+            font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+            padding: 6px 12px; border-radius: 20px; letter-spacing: 0.5px;
+        }
+        /* Status Colors */
+        .status-ok { background: rgba(48, 209, 88, 0.15); color: var(--ios-green); }
+        .status-low { background: rgba(255, 69, 58, 0.15); color: var(--ios-red); animation: pulse-red 2s infinite; }
+        .status-warning { background: rgba(255, 159, 10, 0.15); color: var(--ios-orange); }
+
+        /* Progress Bar Area */
+        .stock-info {
+            display: flex; justify-content: space-between;
+            font-size: 0.9rem; color: var(--text-muted); margin-bottom: 10px; font-weight: 500;
+        }
+        
+        .progress-track {
+            width: 100%; height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px; overflow: hidden;
+        }
+        
+        .progress-fill { height: 100%; border-radius: 10px; transition: width 1s ease; }
+        .bg-green { background: var(--ios-green); }
+        .bg-orange { background: var(--ios-orange); }
+        .bg-red { background: var(--ios-red); }
+
+        /* ALERT OVERLAY (iOS Style) */
+        .alert-box {
+            text-align: center;
+        }
+        .alert-icon { font-size: 3rem; margin-bottom: 15px; }
+        .alert-box h3 { font-size: 1.3rem; margin-bottom: 10px; font-weight: 700; }
+        .alert-box ul {
+            list-style: none; padding: 0; margin: 20px 0;
+            background: rgba(255,255,255,0.05); border-radius: 12px;
+        }
+        .alert-box li {
+            padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.1);
+            font-size: 0.95rem; color: var(--ios-red); font-weight: 500;
+        }
+        .alert-box li:last-child { border-bottom: none; }
+
+        .alert-btn {
+            width: 100%; background: var(--ios-blue); color: white;
+            border: none; padding: 14px; border-radius: 12px;
+            font-size: 1rem; font-weight: 600; cursor: pointer;
+        }
+
+        /* MOBILE RESPONSIVE */
+        @media (max-width: 768px) {
+            .content-container { padding: 100px 20px 40px; }
+            .inventory-grid { grid-template-columns: 1fr; } /* Stack cards */
+            .page-title { font-size: 1.8rem; text-align: center; }
+        }
+    </style>
 </head>
 <body>
 
-    <nav class="navbar">
-        <div class="navbar-title">
-            <svg class="navbar-logo" viewBox="0 0 24 24" fill="none">
-                <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="url(#grad1)"/>
-                <path d="M2 17L12 22L22 17" stroke="url(#grad1)" stroke-width="2"/>
-                <path d="M2 12L12 17L22 12" stroke="url(#grad1)" stroke-width="2"/>
-                <defs>
-                    <linearGradient id="grad1" x1="2" y1="2" x2="22" y2="22">
-                        <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
-                        <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
-                    </linearGradient>
-                </defs>
-            </svg>
-            Robot Control Center
-        </div>
-        <div class="navbar-links">
-            <a href="/">Dashboard</a>
-            <a href="/logs">Inventory</a>
-            <a href="/map">Map</a>
-            <a href="/history">History</a> <a href="/logout">Logout</a>
-        </div>
-    </nav>
+    <div class="bg-glow"></div>
 
-    <div class="dashboard-grid" style="grid-template-columns: 1fr;">
-        <div class="panel">
-            <h2 class="panel-title">
-                <div class="panel-icon">
-                    <svg viewBox="0 0 24 24" fill="none" width="16" height="16" stroke="white" stroke-width="2">
-                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-                        <line x1="12" y1="22.08" x2="12" y2="12"></line>
+    <div class="navbar-container">
+        <nav class="navbar">
+            <div class="navbar-header">
+                <a href="/" class="navbar-title">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
                     </svg>
-                </div>
-                Medication Inventory & Stock
-            </h2>
+                    Jacob Control Center
+                </a>
+                <button class="menu-toggle">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+                </button>
+            </div>
+            <div class="navbar-links">
+                <a href="/">Dashboard</a>
+                <a href="/logs" class="active">Inventory</a>
+                <a href="/map">Map</a>
+                <a href="/history">History</a>
+                <a href="/logout">Logout</a>
+            </div>
+        </nav>
+    </div>
 
-            <div class="inventory-grid" id="inventoryContainer">
-                <div style="text-align: center; color: #a0aec0;">Loading Inventory...</div>
+    <div class="content-container">
+        <h1 class="page-title">Medication Stock</h1>
+        
+        <div class="inventory-grid" id="inventoryContainer">
+            <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #8e8e93;">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite;">
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56"></path>
+                </svg>
+                <div style="margin-top: 15px;">Syncing with Robot...</div>
             </div>
         </div>
     </div>
 
-    <div id="alertOverlay" class="alert-overlay">
-        <div class="alert-box">
+    <div id="alertOverlay" class="modal-overlay" style="display:none;">
+        <div class="modal-box alert-box">
             <div class="alert-icon">⚠️</div>
-            <h3>Low Stock Alert</h3>
-            <p id="alertMessage">The following medicines are running low:</p>
-            <ul id="lowStockList"></ul>
-            <button class="alert-btn" onclick="closeAlert()">Acknowledge & Buy</button>
+            <h3>Low Stock Warning</h3>
+            <p style="color:#aaa; font-size:0.9rem;">The following items are below safe levels:</p>
+            
+            <ul id="lowStockList">
+                </ul>
+            
+            <button class="alert-btn" onclick="closeAlert()">Acknowledge</button>
         </div>
     </div>
 
     <script>
-        // Fetch and Render Logic
+        // Navbar Toggle Logic (Same as Dashboard)
+        document.querySelector('.menu-toggle').addEventListener('click', function() {
+            document.querySelector('.navbar').classList.toggle('open');
+        });
+
+        // Inventory Logic
         document.addEventListener('DOMContentLoaded', async () => {
             const container = document.getElementById('inventoryContainer');
             const lowStockList = document.getElementById('lowStockList');
@@ -73,16 +176,21 @@
                 const res = await fetch('/api/inventory');
                 const data = await res.json();
                 
-                container.innerHTML = ''; // Clear loading text
+                container.innerHTML = ''; // Clear loading
+
+                if (data.length === 0) {
+                    container.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:#888;">No medications tracked.</div>`;
+                    return;
+                }
 
                 data.forEach(item => {
-                    // Check for low stock
+                    // Check Low Stock
                     if(item.status === 'low') {
-                        lowStockItems.push(`${item.name} (${item.stock} left)`);
+                        lowStockItems.push(`${item.name} (${item.stock} remaining)`);
                     }
 
-                    // Calculate percentage
-                    const percent = (item.stock / item.total) * 100;
+                    // Calculate Percentage
+                    const percent = Math.min((item.stock / item.total) * 100, 100);
                     let colorClass = 'bg-green';
                     if(percent < 50) colorClass = 'bg-orange';
                     if(percent < 25) colorClass = 'bg-red';
@@ -95,35 +203,38 @@
                                 <div class="inv-name">${item.name}</div>
                                 <div class="inv-dosage">${item.dosage}</div>
                             </div>
-                            <div class="inv-badge status-${item.status}">${item.status.toUpperCase()}</div>
+                            <div class="inv-badge status-${item.status}">${item.status}</div>
                         </div>
+                        
                         <div class="stock-info">
-                            <span>Stock: ${item.stock} / ${item.total} ${item.unit}</span>
+                            <span>${item.stock} / ${item.total} units</span>
                             <span>${Math.round(percent)}%</span>
                         </div>
-                        <div class="progress-bar">
+                        
+                        <div class="progress-track">
                             <div class="progress-fill ${colorClass}" style="width: ${percent}%"></div>
+                        </div>
+                        
+                        <div style="margin-top:15px; font-size:0.8rem; color:#666;">
+                            ${item.instructions || 'No special instructions'}
                         </div>
                     `;
                     container.appendChild(card);
                 });
 
-                // Trigger Alert if needed
+                // Show Alert if needed
                 if(lowStockItems.length > 0) {
                     lowStockItems.forEach(msg => {
                         const li = document.createElement('li');
                         li.textContent = msg;
                         lowStockList.appendChild(li);
                     });
-                    // Small delay for effect
-                    setTimeout(() => {
-                        alertOverlay.style.display = 'flex';
-                    }, 500);
+                    setTimeout(() => { alertOverlay.style.display = 'flex'; }, 800);
                 }
 
             } catch (error) {
                 console.error(error);
-                container.innerHTML = 'Error loading inventory.';
+                container.innerHTML = '<div style="color:#ff453a; text-align:center;">Failed to load inventory data.</div>';
             }
         });
 
@@ -131,5 +242,9 @@
             document.getElementById('alertOverlay').style.display = 'none';
         }
     </script>
+    
+    <style>
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+    </style>
 </body>
 </html>

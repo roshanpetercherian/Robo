@@ -1,53 +1,74 @@
-// ==================== A* PATHFINDING ENGINE ====================
+// ==================== A* PATHFINDING ENGINE (Responsive) ====================
 
 const canvas = document.getElementById('astarCanvas');
 const ctx = canvas.getContext('2d');
 const statusMsg = document.getElementById('pathStatus');
 
-// Grid Configuration
-const CELL_SIZE = 25;
-const COLS = Math.floor(canvas.width / CELL_SIZE);
-const ROWS = Math.floor(canvas.height / CELL_SIZE);
-
-// State
-let grid = []; // 0: Empty, 1: Wall
+// Dynamic Grid Config
+let CELL_SIZE = 25;
+let COLS, ROWS;
+let grid = []; 
 let start = { x: 2, y: 2 };
-let end = { x: COLS - 3, y: ROWS - 3 };
+let end = { x: 10, y: 10 }; // Safe default
 let currentMode = 'wall';
 let isDragging = false;
 
-// ==================== INITIALIZATION & DB LOGIC ====================
+// ==================== INITIALIZATION & RESPONSIVENESS ====================
+
+function initCanvas() {
+    const maxWidth = window.innerWidth * 0.95; // 95% of screen width
+    const maxHeight = window.innerHeight * 0.6; // 60% of screen height
+
+    // Desktop vs Mobile sizing
+    if (window.innerWidth < 768) {
+        CELL_SIZE = 20; // Smaller cells on mobile
+        canvas.width = maxWidth;
+        canvas.height = maxHeight;
+    } else {
+        CELL_SIZE = 25;
+        canvas.width = Math.min(800, maxWidth);
+        canvas.height = 500;
+    }
+
+    COLS = Math.floor(canvas.width / CELL_SIZE);
+    ROWS = Math.floor(canvas.height / CELL_SIZE);
+
+    // Update End Point if it's out of bounds after resize
+    if (end.x >= COLS) end.x = COLS - 2;
+    if (end.y >= ROWS) end.y = ROWS - 2;
+}
 
 // 1. Init Empty Grid
 function initEmptyGrid() {
     grid = new Array(COLS).fill(0).map(() => new Array(ROWS).fill(0));
 }
 
-// 2. Load Map from Database
+// 2. Load Map
 async function loadMapFromDB() {
+    initCanvas(); // Ensure canvas is sized first
+    
     try {
         const res = await fetch('/api/map/load');
         const data = await res.json();
         
-        if (data.success && data.grid) {
+        if (data.success && data.grid && data.grid.length === COLS && data.grid[0].length === ROWS) {
             grid = data.grid;
-            console.log("Map loaded from DB");
+            console.log("Map loaded");
         } else {
+            // Dimension mismatch or new map -> Reset
             initEmptyGrid();
-            console.log("No saved map, starting blank");
+            console.log("Starting blank map (dimensions changed or empty)");
         }
     } catch (error) {
-        console.error("Error loading map:", error);
         initEmptyGrid();
     }
-    
-    // FIX: Only call solveAStar, do NOT call draw() separately
     solveAStar();
 }
 
-// 3. Save Map to Database
+// 3. Save Map
 async function saveMapToDB() {
     statusMsg.textContent = "Saving...";
+    statusMsg.style.color = '#fff';
     try {
         const res = await fetch('/api/map/save', {
             method: 'POST',
@@ -57,11 +78,10 @@ async function saveMapToDB() {
         const data = await res.json();
         if(data.success) {
             statusMsg.textContent = "Layout Saved!";
-            setTimeout(() => solveAStar(), 2000); // Revert status text
+            statusMsg.style.color = '#30d158'; // Green
+            setTimeout(() => solveAStar(), 2000);
         }
-    } catch (e) {
-        alert("Failed to save map");
-    }
+    } catch (e) { alert("Failed to save map"); }
 }
 
 // ==================== ALGORITHM (A-Star) ====================
@@ -71,7 +91,10 @@ function solveAStar() {
     let closedSet = [];
     let path = [];
 
-    // Safety check: ensure start/end are not walls
+    // Ensure start/end are valid
+    if(start.x >= COLS || start.y >= ROWS) start = {x:0, y:0};
+    if(end.x >= COLS || end.y >= ROWS) end = {x:COLS-1, y:ROWS-1};
+
     if (grid[start.x][start.y] === 1) grid[start.x][start.y] = 0;
     if (grid[end.x][end.y] === 1) grid[end.x][end.y] = 0;
 
@@ -85,7 +108,6 @@ function solveAStar() {
         }
         let current = openSet[lowestIndex];
 
-        // PATH FOUND
         if (current.x === end.x && current.y === end.y) {
             let temp = current;
             path.push(temp);
@@ -94,9 +116,7 @@ function solveAStar() {
                 temp = temp.parent;
             }
             statusMsg.textContent = `Path Found: ${path.length} steps`;
-            statusMsg.style.color = '#48bb78';
-            
-            // FIX: This is the ONLY place we should draw the path
+            statusMsg.style.color = '#30d158';
             draw(path); 
             return;
         }
@@ -134,10 +154,9 @@ function solveAStar() {
         }
     }
 
-    // NO PATH FOUND
     statusMsg.textContent = "No Path Available";
-    statusMsg.style.color = '#f56565';
-    draw([]); // Draw empty path (just grid)
+    statusMsg.style.color = '#ff453a';
+    draw([]); 
 }
 
 function getNeighbors(node) {
@@ -154,39 +173,40 @@ function getNeighbors(node) {
 // ==================== RENDERING ====================
 
 function draw(path = []) {
-    // Clear background
-    ctx.fillStyle = '#0a0a14';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Clear
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Draw Grid & Walls
     for (let i = 0; i < COLS; i++) {
         for (let j = 0; j < ROWS; j++) {
             if (grid[i][j] === 1) {
-                ctx.fillStyle = '#2d3748'; 
+                // Wall Color (Dark Gray)
+                ctx.fillStyle = '#4a4a4a'; 
                 ctx.fillRect(i * CELL_SIZE + 1, j * CELL_SIZE + 1, CELL_SIZE - 2, CELL_SIZE - 2);
             } else {
-                ctx.strokeStyle = '#1a1a2e'; 
+                // Grid Lines (Subtle)
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)'; 
                 ctx.strokeRect(i * CELL_SIZE, j * CELL_SIZE, CELL_SIZE, CELL_SIZE);
             }
         }
     }
 
-    // Draw Path (Blue Overlay)
+    // Draw Path (Blue Neon)
     for (let i = 0; i < path.length; i++) {
-        ctx.fillStyle = 'rgba(102, 126, 234, 0.6)'; // Increased opacity slightly
+        ctx.fillStyle = 'rgba(10, 132, 255, 0.6)'; 
         ctx.fillRect(path[i].x * CELL_SIZE + 1, path[i].y * CELL_SIZE + 1, CELL_SIZE - 2, CELL_SIZE - 2);
     }
 
     // Draw Start (Green)
-    ctx.fillStyle = '#48bb78';
+    ctx.fillStyle = '#30d158';
     ctx.fillRect(start.x * CELL_SIZE + 1, start.y * CELL_SIZE + 1, CELL_SIZE - 2, CELL_SIZE - 2);
 
     // Draw End (Red)
-    ctx.fillStyle = '#f56565';
+    ctx.fillStyle = '#ff453a';
     ctx.fillRect(end.x * CELL_SIZE + 1, end.y * CELL_SIZE + 1, CELL_SIZE - 2, CELL_SIZE - 2);
 }
 
-// ==================== INTERACTION ====================
+// ==================== INTERACTION (Mouse & Touch) ====================
 
 function setMode(mode) {
     currentMode = mode;
@@ -196,10 +216,11 @@ function setMode(mode) {
     if(btn) btn.classList.add('active');
 }
 
-function handleMouse(e) {
+function handleInput(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
-    const x = Math.floor((e.clientX - rect.left) / CELL_SIZE);
-    const y = Math.floor((e.clientY - rect.top) / CELL_SIZE);
+    const x = Math.floor((clientX - rect.left) / CELL_SIZE);
+    const y = Math.floor((clientY - rect.top) / CELL_SIZE);
+    
     if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return;
 
     if (currentMode === 'wall') {
@@ -212,7 +233,6 @@ function handleMouse(e) {
         grid[x][y] = 0;
     }
     
-    // FIX: Only call solveAStar, it handles the drawing
     solveAStar();
 }
 
@@ -221,9 +241,33 @@ function clearWalls() {
     solveAStar();
 }
 
-canvas.addEventListener('mousedown', (e) => { isDragging = true; handleMouse(e); });
-canvas.addEventListener('mousemove', (e) => { if (isDragging && currentMode === 'wall') handleMouse(e); });
+// Mouse Events
+canvas.addEventListener('mousedown', (e) => { isDragging = true; handleInput(e.clientX, e.clientY); });
+canvas.addEventListener('mousemove', (e) => { if (isDragging && currentMode === 'wall') handleInput(e.clientX, e.clientY); });
 window.addEventListener('mouseup', () => { isDragging = false; });
+
+// Touch Events (Mobile)
+canvas.addEventListener('touchstart', (e) => { 
+    isDragging = true; 
+    handleInput(e.touches[0].clientX, e.touches[0].clientY);
+    e.preventDefault(); // Prevent scrolling
+}, {passive: false});
+
+canvas.addEventListener('touchmove', (e) => { 
+    if (isDragging && currentMode === 'wall') {
+        handleInput(e.touches[0].clientX, e.touches[0].clientY);
+    }
+    e.preventDefault(); 
+}, {passive: false});
+
+window.addEventListener('touchend', () => { isDragging = false; });
+
+// Handle Resize
+window.addEventListener('resize', () => {
+    // Reload map to adjust grid size (this resets walls if dimensions change drastically)
+    // For a production app, you'd want to interpolate old grid to new grid.
+    loadMapFromDB();
+});
 
 // START
 loadMapFromDB();

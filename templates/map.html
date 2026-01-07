@@ -3,119 +3,114 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hospital Floor Map - Pathfinding</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <title>Map - Jacob Control Center</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
     <style>
-        /* Specific Styles for Map Page */
+        /* ================= MAP SPECIFIC STYLES ================= */
         .map-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            height: calc(100vh - 100px);
+            display: flex; flex-direction: column; align-items: center;
+            height: 100vh; padding-top: 100px;
+            overflow: hidden; /* Prevent scrolling while drawing */
         }
         
+        /* Glass Control Bar (iOS Dock Style) */
         .controls-bar {
-            background: rgba(20, 20, 30, 0.8);
-            backdrop-filter: blur(10px);
-            padding: 1rem 2rem;
-            border-radius: 16px;
-            border: 1px solid rgba(102, 126, 234, 0.2);
-            margin-bottom: 1.5rem;
-            display: flex;
-            gap: 1rem;
-            align-items: center;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            background: rgba(30, 30, 30, 0.65);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            padding: 10px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 20px;
+            display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            max-width: 90%;
         }
-
-        canvas {
-            background: rgba(10, 10, 20, 0.6);
-            border: 2px solid rgba(102, 126, 234, 0.3);
-            border-radius: 12px;
-            cursor: crosshair;
-            box-shadow: 0 0 50px rgba(102, 126, 234, 0.1);
-        }
-
-        .legend {
-            display: flex; gap: 15px; font-size: 0.9rem; color: #a0aec0;
-        }
-        .legend-item { display: flex; align-items: center; gap: 6px; }
-        .dot { width: 12px; height: 12px; border-radius: 3px; }
-        .dot-start { background: #48bb78; }
-        .dot-end { background: #f56565; }
-        .dot-wall { background: #4a5568; }
-        .dot-path { background: #667eea; }
 
         .btn-control {
-            padding: 0.6rem 1.2rem;
-            border-radius: 8px;
-            border: 1px solid rgba(102, 126, 234, 0.4);
-            background: rgba(102, 126, 234, 0.1);
-            color: #fff;
-            cursor: pointer;
-            transition: 0.2s;
-            font-family: 'Outfit', sans-serif;
+            padding: 10px 16px; border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            background: rgba(255, 255, 255, 0.05);
+            color: #fff; cursor: pointer; transition: 0.2s;
+            font-family: 'Inter', sans-serif; font-size: 0.9rem; font-weight: 500;
         }
-        .btn-control:hover { background: rgba(102, 126, 234, 0.3); }
-        .btn-control.active { background: #667eea; border-color: #667eea; }
+        .btn-control:hover { background: rgba(255, 255, 255, 0.15); }
         
-        .status-msg { margin-left: auto; color: #667eea; font-family: monospace; }
+        /* Active States */
+        .btn-control.active { background: #fff; color: #000; font-weight: 600; }
+        .btn-save { background: var(--ios-green); color: white; border: none; }
+        .btn-clear { color: var(--ios-red); }
+
+        /* The Canvas */
+        canvas {
+            background: rgba(20, 20, 20, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            cursor: crosshair;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            touch-action: none; /* Critical for mobile dragging */
+        }
+
+        .status-msg {
+            margin-top: 10px; font-family: 'Inter', sans-serif; 
+            font-size: 0.9rem; color: var(--text-muted); font-weight: 500;
+        }
+
+        /* Mobile Adjustments */
+        @media (max-width: 768px) {
+            .map-container { padding-top: 80px; justify-content: flex-start; }
+            .controls-bar { width: 95%; gap: 5px; padding: 8px; }
+            .btn-control { padding: 8px 12px; font-size: 0.8rem; flex: 1 0 auto; text-align: center; }
+        }
     </style>
 </head>
 <body>
 
-    <nav class="navbar">
-        <div class="navbar-title">
-            <svg class="navbar-logo" viewBox="0 0 24 24" fill="none">
-                <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="url(#grad1)"/>
-                <path d="M2 17L12 22L22 17" stroke="url(#grad1)" stroke-width="2"/>
-                <path d="M2 12L12 17L22 12" stroke="url(#grad1)" stroke-width="2"/>
-                <defs>
-                    <linearGradient id="grad1" x1="2" y1="2" x2="22" y2="22">
-                        <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
-                        <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
-                    </linearGradient>
-                </defs>
-            </svg>
-            Robot Control Center
-        </div>
-        <div class="navbar-links">
-            <a href="/">Dashboard</a>
-            <a href="/logs">Inventory</a>
-            <a href="/map">Map</a>
-            <a href="/history">History</a> <a href="/logout">Logout</a>
-        </div>
-    </nav>
+    <div class="bg-glow"></div>
 
-    <div class="dashboard-grid" style="grid-template-columns: 1fr;">
-        <div class="map-container">
-            
-            <div class="controls-bar">
-                <div class="legend">
-                    </div>
-
-                <div style="width: 1px; height: 20px; background: rgba(255,255,255,0.2);"></div>
-
-                <button class="btn-control" onclick="setMode('wall')" id="btnWall">Draw Walls</button>
-                <button class="btn-control" onclick="setMode('start')" id="btnStart">Move Robot</button>
-                <button class="btn-control" onclick="setMode('end')" id="btnEnd">Set Goal</button>
-                <button class="btn-control" onclick="clearWalls()">Clear Map</button>
-                
-                <button class="btn-control" style="background: #48bb78; border-color: #48bb78;" onclick="saveMapToDB()">
-                    💾 Save Layout
+    <div class="navbar-container">
+        <nav class="navbar">
+            <div class="navbar-header">
+                <a href="/" class="navbar-title">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                    Jacob Control Center
+                </a>
+                <button class="menu-toggle">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
                 </button>
-
-                <div class="status-msg" id="pathStatus">Path Found: 0 steps</div>
             </div>
-
-            <canvas id="astarCanvas" width="800" height="500"></canvas>
-            
-            <p style="margin-top: 10px; color: #718096; font-size: 0.9rem;">
-                <span style="color: #667eea;">✨ CS Feature:</span> Real-time A* (A-Star) Pathfinding. Drag to create dynamic obstacles.
-            </p>
-        </div>
+            <div class="navbar-links">
+                <a href="/">Dashboard</a>
+                <a href="/logs">Inventory</a>
+                <a href="/map" class="active">Map</a>
+                <a href="/history">History</a>
+                <a href="/logout">Logout</a>
+            </div>
+        </nav>
     </div>
 
+    <div class="map-container">
+        
+        <div class="controls-bar">
+            <button class="btn-control active" onclick="setMode('wall')" id="btnWall">Draw Walls</button>
+            <button class="btn-control" onclick="setMode('start')" id="btnStart">Start</button>
+            <button class="btn-control" onclick="setMode('end')" id="btnEnd">Goal</button>
+            <button class="btn-control btn-clear" onclick="clearWalls()">Clear</button>
+            <button class="btn-control btn-save" onclick="saveMapToDB()">Save</button>
+        </div>
+
+        <canvas id="astarCanvas"></canvas>
+        <div class="status-msg" id="pathStatus">Path Found: 0 steps</div>
+        
+    </div>
+
+    <script>
+        // Navbar Toggle
+        document.querySelector('.menu-toggle').addEventListener('click', function() {
+            document.querySelector('.navbar').classList.toggle('open');
+        });
+    </script>
     <script src="{{ url_for('static', filename='js/astar.js') }}"></script>
 </body>
 </html>

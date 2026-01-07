@@ -1,25 +1,83 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Register - Robot Control</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <title>Register - Jacob AI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
     <style>
-        body { background: #0a0a14; color: white; font-family: 'Outfit', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .box { background: rgba(30, 30, 45, 0.9); padding: 40px; border-radius: 16px; border: 1px solid #48bb78; width: 300px; text-align: center; }
-        input { width: 100%; padding: 10px; margin: 10px 0; background: #2d3748; border: none; color: white; border-radius: 4px; }
-        button { width: 100%; padding: 10px; background: #48bb78; border: none; color: white; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 10px; }
-        a { color: #a0aec0; display: block; margin-top: 10px; text-decoration: none; font-size: 0.9rem; }
+        body {
+            margin: 0; background-color: #000; font-family: 'Inter', sans-serif; color: white;
+            display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden;
+        }
+        .bg-glow {
+            position: absolute; width: 600px; height: 600px;
+            background: radial-gradient(circle, rgba(118, 75, 162, 0.15) 0%, rgba(0,0,0,0) 70%);
+            top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: -1;
+        }
+        .card {
+            width: 100%; max-width: 400px; padding: 40px;
+            background: rgba(25, 25, 25, 0.6); backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 30px;
+            text-align: center; animation: fadeUp 0.8s ease-out forwards;
+            box-sizing: border-box; /* Important for responsive padding */
+        }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        
+        h1 { margin-bottom: 10px; font-weight: 800; font-size: 2rem; letter-spacing: -1px; margin-top: 0; }
+        p { color: #888; margin-bottom: 30px; font-size: 0.95rem; }
+        
+        input {
+            width: 100%; padding: 18px; margin-bottom: 15px;
+            background: rgba(0, 0, 0, 0.3); border: 1px solid #333; border-radius: 12px;
+            color: white; font-family: inherit; font-size: 1rem; box-sizing: border-box;
+            transition: 0.3s;
+        }
+        input:focus { outline: none; border-color: #764ba2; background: rgba(118, 75, 162, 0.1); }
+        
+        .btn-primary {
+            width: 100%; padding: 18px; background: white; color: black;
+            border: none; border-radius: 50px; font-size: 1rem; font-weight: 700; cursor: pointer;
+            transition: 0.2s; margin-top: 10px;
+        }
+        .btn-primary:hover { transform: scale(1.02); box-shadow: 0 0 20px rgba(255, 255, 255, 0.3); }
+        
+        .links { margin-top: 20px; font-size: 0.9rem; color: #666; }
+        .links a { color: #764ba2; text-decoration: none; font-weight: 600; }
+
+        /* ================= MOBILE RESPONSIVE ================= */
+        @media (max-width: 480px) {
+            .card {
+                width: 90%;
+                padding: 30px 20px;
+                border-radius: 24px;
+            }
+            .bg-glow {
+                width: 100vw;
+                height: 100vw;
+            }
+            h1 { font-size: 1.8rem; }
+            input { padding: 15px; font-size: 0.95rem; }
+            .btn-primary { padding: 15px; }
+        }
     </style>
 </head>
 <body>
-    <div class="box">
-        <h2>Create Account</h2>
-        <form method="POST">
+    <div class="bg-glow"></div>
+    <div class="card">
+        <h1>New Account</h1>
+        <p>Join the Jacob network.</p>
+        
+        {% with messages = get_flashed_messages() %}
+            {% if messages %} <div style="color:#f56565; margin-bottom:15px;">{{ messages[0] }}</div> {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="/register">
             <input type="text" name="username" placeholder="Choose Username" required>
-            <input type="password" name="password" placeholder="Choose Password" required>
-            <button type="submit">Register</button>
+            <input type="password" name="password" placeholder="Create Password" required>
+            <button type="submit" class="btn-primary">Create ID</button>
         </form>
-        <a href="/login">Already have an account? Login</a>
+        <div class="links">Already have an ID? <a href="/login">Sign In</a></div>
     </div>
 </body>
 </html>
